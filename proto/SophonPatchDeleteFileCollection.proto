@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+option csharp_namespace = "SophonChunksDownloader";
+
+import "SophonPatchDeleteFile.proto";
+
+message SophonPatchDeleteFileCollection {
+    repeated SophonPatchDeleteFile delete_files = 1;
+}

@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+option csharp_namespace = "SophonChunksDownloader";
+
+import "SophonPatch.proto";
+
+message SophonPatchInfo {
+    string tag = 1;
+    SophonPatch patch = 2;
+}

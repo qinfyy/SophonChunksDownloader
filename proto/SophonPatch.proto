@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+option csharp_namespace = "SophonChunksDownloader";
+
+message SophonPatch {
+    string id = 1;
+    string tag = 2;
+    string build_id = 3;
+    int64 patch_file_size = 4;
+    string patch_file_md5 = 5;
+    int64 patch_offset = 6;
+    int64 patch_length = 7;
+    string original_file_name = 8;
+    int64 original_file_size = 9;
+    string original_file_md5 = 10;
+}

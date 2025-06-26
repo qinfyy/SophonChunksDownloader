@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+option csharp_namespace = "SophonChunksDownloader";
+
+message SophonPatchDeleteFile {
+    string file = 1;
+    int64 size = 2;
+    string md5 = 3;
+}

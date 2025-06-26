@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+option csharp_namespace = "SophonChunksDownloader";
+
+import "SophonChunkFile.proto";
+
+message SophonChunkManifest {
+    repeated SophonChunkFile chuncks = 1;
+}

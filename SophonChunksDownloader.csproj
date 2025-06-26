@@ -1,0 +1,46 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="proto\SophonChunk.proto" />
+    <None Remove="proto\SophonChunkFile.proto" />
+    <None Remove="proto\SophonChunkManifest.proto" />
+    <None Remove="proto\SophonPatch.proto" />
+    <None Remove="proto\SophonPatchDeleteFile.proto" />
+    <None Remove="proto\SophonPatchDeleteFileCollection.proto" />
+    <None Remove="proto\SophonPatchDeleteTag.proto" />
+    <None Remove="proto\SophonPatchFile.proto" />
+    <None Remove="proto\SophonPatchInfo.proto" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="proto\SophonChunk.proto" />
+    <AdditionalFiles Include="proto\SophonChunkFile.proto" />
+    <AdditionalFiles Include="proto\SophonChunkManifest.proto" />
+    <AdditionalFiles Include="proto\SophonPatch.proto" />
+    <AdditionalFiles Include="proto\SophonPatchDeleteFile.proto" />
+    <AdditionalFiles Include="proto\SophonPatchDeleteFileCollection.proto" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="proto\SophonPatchDeleteTag.proto" />
+    <AdditionalFiles Include="proto\SophonPatchFile.proto" />
+    <AdditionalFiles Include="proto\SophonPatchInfo.proto" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="protobuf-net" Version="3.2.52" />
+    <PackageReference Include="protobuf-net.BuildTools" Version="3.2.52">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.5" />
+  </ItemGroup>
+
+</Project>
