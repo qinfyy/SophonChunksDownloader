@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
 using ProtoBuf;
@@ -16,10 +15,13 @@ namespace SophonChunksDownloader
         private static readonly SemaphoreSlim _并发信号量;
         private static readonly BlockingCollection<string> _日志队列 = new BlockingCollection<string>();
         private static readonly CancellationTokenSource _cts = new CancellationTokenSource();
-        private static readonly Stopwatch _计时器 = new Stopwatch();
 
         private static int _总文件数 = 0;
         private static int _已完成文件数 = 0;
+        private static long _总字节数 = 0;
+        private static long _已下载字节数 = 0;
+        private static ProgressBar _主进度条 = null;
+        private static readonly object _进度条锁 = new object();
 
         static Program()
         {
@@ -141,7 +143,7 @@ namespace SophonChunksDownloader
                 }
 
                 var 所有文件列表 = new List<SophonChunkFile>();
-                var 文件清单字典 = new Dictionary<SophonChunkFile, string>(); // 存储文件对应的分块路径前缀
+                var 文件清单字典 = new Dictionary<SophonChunkFile, string>();
 
                 Console.WriteLine("\n开始下载清单...");
                 foreach (var 文件信息 in 选中的文件)
@@ -186,8 +188,8 @@ namespace SophonChunksDownloader
                     return;
                 }
 
-                var 总大小 = 所有文件列表.Sum(a => a.Size);
-                Console.WriteLine($"\n文件总数：{_总文件数} ，共 {实用工具.格式化文件大小(总大小)}");
+                _总字节数 = 所有文件列表.Sum(a => a.Size);
+                Console.WriteLine($"\n文件总数：{_总文件数} ，共 {实用工具.格式化文件大小(_总字节数)}");
                 Console.WriteLine("开始下载文件...\n");
                 GC.Collect();
 
@@ -201,11 +203,11 @@ namespace SophonChunksDownloader
                     ProgressCharacter = '─'
                 };
 
-                _计时器.Start();
+                long 缩放后总进度 = (_总字节数 + 1048576 - 1) / 1048576;
 
-                using (var 主进度条 = new ProgressBar(_总文件数, "下载进度", 进度条设置))
+                using (_主进度条 = new ProgressBar((int)缩放后总进度, "下载进度", 进度条设置))
                 {
-                    主进度条.Tick(0);
+                    _主进度条.Tick(0, 获取进度信息(0, 0));
 
                     var 下载任务 = new List<Task>();
                     foreach (var 文件 in 所有文件列表)
@@ -219,9 +221,6 @@ namespace SophonChunksDownloader
                             try
                             {
                                 await 下载文件_异步(文件, 分块地址前缀, 保存目录, _cts.Token);
-
-                                var newCount = Interlocked.Increment(ref _已完成文件数);
-                                主进度条.Tick(newCount, $"已完成: {newCount}/{_总文件数}");
                             }
                             catch (OperationCanceledException)
                             {
@@ -238,15 +237,18 @@ namespace SophonChunksDownloader
                     }
 
                     await Task.WhenAll(下载任务);
-                }
 
-                if (!_cts.IsCancellationRequested)
-                {
-                    _计时器.Stop();
-                    var elapsed = _计时器.Elapsed;
-                    Console.WriteLine($"下载用时：{elapsed.Hours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}");
-
-                    Console.WriteLine("\n所有文件下载完成!");
+                    if (!_cts.IsCancellationRequested)
+                    {
+                        _已完成文件数 = _总文件数;
+                        _已下载字节数 = _总字节数;
+                        int 当前进度 = (int)(_已下载字节数 / 1048576);
+                        int 最大进度 = (int)缩放后总进度;
+                        if (当前进度 < 最大进度)
+                        {
+                            _主进度条.Tick(最大进度, 获取进度信息(_总文件数, _总字节数));
+                        }
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -262,6 +264,14 @@ namespace SophonChunksDownloader
                 _日志队列.CompleteAdding();
                 await Task.Delay(100);
             }
+
+            Console.WriteLine("\n按任意键关闭...");
+            Console.ReadKey();
+        }
+
+        private static string 获取进度信息(int 文件数, long 字节数)
+        {
+            return $"已完成: {文件数}/{_总文件数}, {实用工具.格式化文件大小(字节数)}/{实用工具.格式化文件大小(_总字节数)}";
         }
 
         private static async Task 下载文件_异步(SophonChunkFile file, string 分块路径前缀, string 保存路径, CancellationToken ct)
@@ -283,6 +293,18 @@ namespace SophonChunksDownloader
                     if (存在文件Md5.Equals(file.Md5, StringComparison.OrdinalIgnoreCase))
                     {
                         //Console.WriteLine($"文件已存在且MD5匹配，跳过下载: {filePath}");
+
+                        Interlocked.Add(ref _已下载字节数, file.Size);
+                        var 新文件数 = Interlocked.Increment(ref _已完成文件数);
+
+                        if (_主进度条 != null)
+                        {
+                            lock (_进度条锁)
+                            {
+                                var 进度值 = (int)(Interlocked.Read(ref _已下载字节数) / 1048576);
+                                _主进度条.Tick(进度值, 获取进度信息(新文件数, _已下载字节数));
+                            }
+                        }
                         return;
                     }
                 }
@@ -322,7 +344,18 @@ namespace SophonChunksDownloader
             }
             finally
             {
-                GC.Collect();
+                var 新文件数 = Interlocked.Increment(ref _已完成文件数);
+
+                if (_主进度条 != null)
+                {
+                    var 当前字节数 = Interlocked.Read(ref _已下载字节数);
+
+                    lock (_进度条锁)
+                    {
+                        var 进度值 = (int)(当前字节数 / 1048576);
+                        _主进度条.Tick(进度值, 获取进度信息(新文件数, 当前字节数));
+                    }
+                }
             }
         }
 
@@ -389,6 +422,19 @@ namespace SophonChunksDownloader
                         md5,
                         ct
                     );
+
+                    long 分块实际大小 = chunk.UncompressedSize;
+                    long 新字节数 = Interlocked.Add(ref _已下载字节数, 分块实际大小);
+                    int 当前文件数 = Interlocked.CompareExchange(ref _已完成文件数, 0, 0); // 原子读取
+
+                    if (_主进度条 != null)
+                    {
+                        lock (_进度条锁)
+                        {
+                            int 进度值 = (int)(新字节数 / 1048576);
+                            _主进度条.Tick(进度值, 获取进度信息(当前文件数, 新字节数));
+                        }
+                    }
 
                     解压数据.Seek(0, SeekOrigin.Begin);
                     await 解压数据.CopyToAsync(输出流, ct);
