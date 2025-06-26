@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Text.Json;
 using ProtoBuf;
 using ZstdSharp;
 using ShellProgressBar;
@@ -37,29 +38,90 @@ namespace SophonChunksDownloader
 
             try
             {
-                Console.Write("请输入清单下载地址前缀：");
-                var 清单地址前缀 = Console.ReadLine()?.Trim();
+                Console.Write("请输入清单配置的URL：");
+                var 输入路径 = Console.ReadLine()?.Trim().Trim('"');
 
-                Console.Write("请输入清单ID：");
-                var 清单Id = Console.ReadLine()?.Trim();
+                if (string.IsNullOrEmpty(输入路径))
+                {
+                    Console.WriteLine("输入不能为空");
+                    return;
+                }
 
-                Console.Write("请输入文件下载地址前缀：");
-                var 分块地址前缀 = Console.ReadLine()?.Trim();
+                Console.WriteLine("\n开始获取配置...");
+                string 配置Json;
+                try
+                {
+                    if (输入路径.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                        || 输入路径.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        using (var rsp = await _hc.GetAsync(输入路径, _cts.Token))
+                        {
+                            rsp.EnsureSuccessStatusCode();
+                            配置Json = await rsp.Content.ReadAsStringAsync(_cts.Token);
+                        }
+                    }
+                    else
+                    {
+                        var 文件路径 = Path.GetFullPath(输入路径);
+                        if (!File.Exists(文件路径))
+                        {
+                            throw new FileNotFoundException($"配置文件不存在: {文件路径}");
+                        }
+                        配置Json = await File.ReadAllTextAsync(文件路径, _cts.Token);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    记录错误($"配置获取失败: {ex.Message}");
+                    return;
+                }
+
+                ManifestConfig 配置;
+                try
+                {
+                    配置 = JsonSerializer.Deserialize<ManifestConfig>(配置Json);
+                }
+                catch (Exception ex)
+                {
+                    记录错误($"配置解析失败: {ex.Message}");
+                    return;
+                }
+
+                if (配置.retcode != 0)
+                {
+                    记录错误($"配置返回错误: {配置.message}");
+                    return;
+                }
+
+                Console.WriteLine("\nTag: " + 配置.data.tag);
+                Console.WriteLine("请选择要下载的文件:");
+                for (int i = 0; i < 配置.data.manifests.Count; i++)
+                {
+                    Console.WriteLine($"{i + 1}. {配置.data.manifests[i].category_name}");
+                }
+
+                Console.Write($"\n输入选择 (1-{配置.data.manifests.Count}): ");
+                var 选择 = Console.ReadLine();
+                if (!int.TryParse(选择, out int 选择索引) || 选择索引 < 1 || 选择索引 > 配置.data.manifests.Count)
+                {
+                    Console.WriteLine("输入无效");
+                    return;
+                }
+
+                var 选中的文件 = 配置.data.manifests[选择索引 - 1];
 
                 Console.Write("请输入文件保存目录：");
                 var 保存目录 = Console.ReadLine()?.Trim();
 
-                if (string.IsNullOrEmpty(清单地址前缀) ||
-                    string.IsNullOrEmpty(清单Id) ||
-                    string.IsNullOrEmpty(分块地址前缀) ||
-                    string.IsNullOrEmpty(保存目录))
+                if (string.IsNullOrEmpty(保存目录))
                 {
-                    Console.WriteLine("输入参数不能为空");
+                    Console.WriteLine("保存目录不能为空");
                     return;
                 }
 
-                清单地址前缀 = 实用工具.确保斜杠结尾(清单地址前缀);
-                分块地址前缀 = 实用工具.确保斜杠结尾(分块地址前缀);
+                var 清单地址前缀 = 实用工具.确保斜杠结尾(选中的文件.manifest_download.url_prefix);
+                var 清单Id = 选中的文件.manifest.id;
+                var 分块地址前缀 = 实用工具.确保斜杠结尾(选中的文件.chunk_download.url_prefix);
 
                 if (File.Exists(_错误文件路径))
                 {
@@ -76,14 +138,14 @@ namespace SophonChunksDownloader
                         清单数据 = await rsp.Content.ReadAsByteArrayAsync(_cts.Token);
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    记录错误($"清单下载失败: {清单地址前缀}{清单Id}");
+                    记录错误($"清单下载失败: {清单地址前缀}{清单Id}\n{ex.Message}");
                     return;
                 }
 
                 Console.WriteLine($"清单下载完成");
-                Console.WriteLine("正在解压清单...");
+                Console.WriteLine("正在解析清单...");
 
                 using var decompressor = new Decompressor();
                 var 解压清单 = decompressor.Unwrap(清单数据);

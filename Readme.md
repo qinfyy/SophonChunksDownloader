@@ -14,8 +14,4 @@
    cd .\bin\Debug\net9.0
    .\SophonChunksDownloader.exe
    ```
-2. 输入以下参数：
-   - 清单下载地址前缀（Manifest URL Prefix）
-   - 清单 ID（Manifest ID）
-   - 文件下载地址前缀（Chunks URL Prefix）
-   - 文件保存目录（Save Directory）
+2. 输入清单配置的URL
