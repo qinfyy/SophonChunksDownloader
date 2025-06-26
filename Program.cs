@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using ProtoBuf;
 using ZstdSharp;
@@ -13,6 +14,7 @@ namespace SophonChunksDownloader
         private static readonly SemaphoreSlim _并发信号量;
         private static readonly BlockingCollection<string> _日志队列 = new BlockingCollection<string>();
         private static readonly CancellationTokenSource _cts = new CancellationTokenSource();
+        private static readonly Stopwatch _计时器 = new Stopwatch();
 
         static Program()
         {
@@ -90,6 +92,7 @@ namespace SophonChunksDownloader
                 Console.WriteLine($"文件数量：{清单.Chuncks.Count} ，共 {实用工具.格式化文件大小(总大小)}");
                 Console.WriteLine("开始下载文件...\n");
 
+                _计时器.Start();
                 var 下载任务 = new List<Task>();
                 foreach (var 文件 in 清单.Chuncks)
                 {
@@ -120,6 +123,10 @@ namespace SophonChunksDownloader
 
                 if (!_cts.IsCancellationRequested)
                 {
+                    _计时器.Stop();
+                    var elapsed = _计时器.Elapsed;
+                    Console.WriteLine($"下载用时：{elapsed.Hours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}");
+                    
                     Console.WriteLine("\n所有文件下载完成!");
                 }
             }
