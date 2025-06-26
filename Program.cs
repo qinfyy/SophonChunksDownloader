@@ -102,13 +102,29 @@ namespace SophonChunksDownloader
 
                 Console.Write($"\n输入选择 (1-{配置.data.manifests.Count}): ");
                 var 选择 = Console.ReadLine();
-                if (!int.TryParse(选择, out int 选择索引) || 选择索引 < 1 || 选择索引 > 配置.data.manifests.Count)
+                var 选择的索引 = new List<int>();
+                var 选中的文件 = new List<ManifestCategory>();
+
+                foreach (var c in 选择)
                 {
-                    Console.WriteLine("输入无效");
+                    if (c == ',' || c == ' ') continue;
+                    if (int.TryParse(c.ToString(), out int index) && index >= 1 && index <= 配置.data.manifests.Count)
+                    {
+                        if (!选择的索引.Contains(index))
+                            选择的索引.Add(index);
+                    }
+                }
+
+                if (选择的索引.Count == 0)
+                {
+                    Console.WriteLine("输入无效，没有选择任何文件");
                     return;
                 }
 
-                var 选中的文件 = 配置.data.manifests[选择索引 - 1];
+                选中的文件 = 选择的索引
+                    .OrderBy(i => i)
+                    .Select(i => 配置.data.manifests[i - 1])
+                    .ToList();
 
                 Console.Write("请输入文件保存目录：");
                 var 保存目录 = Console.ReadLine()?.Trim();
@@ -119,43 +135,61 @@ namespace SophonChunksDownloader
                     return;
                 }
 
-                var 清单地址前缀 = 实用工具.确保斜杠结尾(选中的文件.manifest_download.url_prefix);
-                var 清单Id = 选中的文件.manifest.id;
-                var 分块地址前缀 = 实用工具.确保斜杠结尾(选中的文件.chunk_download.url_prefix);
-
                 if (File.Exists(_错误文件路径))
                 {
                     File.Delete(_错误文件路径);
                 }
 
+                var 所有文件列表 = new List<SophonChunkFile>();
+                var 文件清单字典 = new Dictionary<SophonChunkFile, string>(); // 存储文件对应的分块路径前缀
+
                 Console.WriteLine("\n开始下载清单...");
-                byte[] 清单数据;
-                try
+                foreach (var 文件信息 in 选中的文件)
                 {
-                    using (var rsp = await _hc.GetAsync(清单地址前缀 + 清单Id, HttpCompletionOption.ResponseHeadersRead, _cts.Token))
+                    var 清单地址前缀 = 实用工具.确保斜杠结尾(文件信息.manifest_download.url_prefix);
+                    var 清单Id = 文件信息.manifest.id;
+                    var 分块地址前缀 = 实用工具.确保斜杠结尾(文件信息.chunk_download.url_prefix);
+
+                    byte[] 清单数据;
+                    try
                     {
-                        rsp.EnsureSuccessStatusCode();
-                        清单数据 = await rsp.Content.ReadAsByteArrayAsync(_cts.Token);
+                        using (var rsp = await _hc.GetAsync(清单地址前缀 + 清单Id, HttpCompletionOption.ResponseHeadersRead, _cts.Token))
+                        {
+                            rsp.EnsureSuccessStatusCode();
+                            清单数据 = await rsp.Content.ReadAsByteArrayAsync(_cts.Token);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        记录错误($"清单下载失败: {清单地址前缀}{清单Id}\n{ex.Message}");
+                        continue;
+                    }
+
+                    using var decompressor = new Decompressor();
+                    var 解压清单 = decompressor.Unwrap(清单数据);
+                    var 清单 = Serializer.Deserialize<SophonChunkManifest>(解压清单);
+
+                    var 大小 = 清单.Chuncks.Sum(a => a.Size);
+                    Console.WriteLine($"已下载 {文件信息.category_name} 清单，包含 {清单.Chuncks.Count} 个文件，共 {实用工具.格式化文件大小(大小)}");
+
+                    foreach (var 文件 in 清单.Chuncks)
+                    {
+                        所有文件列表.Add(文件);
+                        文件清单字典[文件] = 分块地址前缀;
                     }
                 }
-                catch (Exception ex)
+
+                _总文件数 = 所有文件列表.Count;
+                if (_总文件数 == 0)
                 {
-                    记录错误($"清单下载失败: {清单地址前缀}{清单Id}\n{ex.Message}");
+                    Console.WriteLine("没有找到任何需要下载的文件");
                     return;
                 }
 
-                Console.WriteLine($"清单下载完成");
-                Console.WriteLine("正在解析清单...");
-
-                using var decompressor = new Decompressor();
-                var 解压清单 = decompressor.Unwrap(清单数据);
-                var 清单 = Serializer.Deserialize<SophonChunkManifest>(解压清单);
+                var 总大小 = 所有文件列表.Sum(a => a.Size);
+                Console.WriteLine($"\n文件总数：{_总文件数} ，共 {实用工具.格式化文件大小(总大小)}");
+                Console.WriteLine("开始下载文件...\n");
                 GC.Collect();
-
-                var 总大小 = 清单.Chuncks.Sum(a => a.Size);
-                _总文件数 = 清单.Chuncks.Count;
-                Console.WriteLine($"文件数量：{_总文件数} ，共 {实用工具.格式化文件大小(总大小)}");
-                Console.WriteLine("\n开始下载文件...\n");
 
                 ProgressBarOptions.ProgressMessageEncodingName = "GBK";
                 var 进度条设置 = new ProgressBarOptions
@@ -174,11 +208,12 @@ namespace SophonChunksDownloader
                     主进度条.Tick(0);
 
                     var 下载任务 = new List<Task>();
-                    foreach (var 文件 in 清单.Chuncks)
+                    foreach (var 文件 in 所有文件列表)
                     {
                         if (_cts.IsCancellationRequested) break;
                         await _并发信号量.WaitAsync(_cts.Token);
 
+                        var 分块地址前缀 = 文件清单字典[文件];
                         下载任务.Add(Task.Run(async () =>
                         {
                             try
