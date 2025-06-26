@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
+	<ItemGroup>
     <None Remove="proto\SophonChunk.proto" />
     <None Remove="proto\SophonChunkFile.proto" />
     <None Remove="proto\SophonChunkManifest.proto" />
@@ -40,6 +40,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="ShellProgressBar" Version="5.2.0" />
     <PackageReference Include="ZstdSharp.Port" Version="0.8.5" />
   </ItemGroup>
 

@@ -45,5 +45,10 @@ namespace SophonChunksDownloader
             else
                 return $"{Math.Round(大小, 保留小数)} {单位[单位索引]}";
         }
+
+        public static string 确保斜杠结尾(string url)
+        {
+            return url.EndsWith("/") ? url : url + "/";
+        }
     }
 }

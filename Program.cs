@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using ProtoBuf;
 using ZstdSharp;
+using ShellProgressBar;
 
 namespace SophonChunksDownloader
 {
@@ -15,6 +16,9 @@ namespace SophonChunksDownloader
         private static readonly BlockingCollection<string> _日志队列 = new BlockingCollection<string>();
         private static readonly CancellationTokenSource _cts = new CancellationTokenSource();
         private static readonly Stopwatch _计时器 = new Stopwatch();
+
+        private static int _总文件数 = 0;
+        private static int _已完成文件数 = 0;
 
         static Program()
         {
@@ -54,15 +58,13 @@ namespace SophonChunksDownloader
                     return;
                 }
 
-                清单地址前缀 = 确保斜杠结尾(清单地址前缀);
-                分块地址前缀 = 确保斜杠结尾(分块地址前缀);
+                清单地址前缀 = 实用工具.确保斜杠结尾(清单地址前缀);
+                分块地址前缀 = 实用工具.确保斜杠结尾(分块地址前缀);
 
                 if (File.Exists(_错误文件路径))
                 {
                     File.Delete(_错误文件路径);
                 }
-
-                File.Create(_错误文件路径).Close();
 
                 Console.WriteLine("\n开始下载清单...");
                 byte[] 清单数据;
@@ -89,44 +91,64 @@ namespace SophonChunksDownloader
                 GC.Collect();
 
                 var 总大小 = 清单.Chuncks.Sum(a => a.Size);
-                Console.WriteLine($"文件数量：{清单.Chuncks.Count} ，共 {实用工具.格式化文件大小(总大小)}");
-                Console.WriteLine("开始下载文件...\n");
+                _总文件数 = 清单.Chuncks.Count;
+                Console.WriteLine($"文件数量：{_总文件数} ，共 {实用工具.格式化文件大小(总大小)}");
+                Console.WriteLine("\n开始下载文件...\n");
+
+                ProgressBarOptions.ProgressMessageEncodingName = "GBK";
+                var 进度条设置 = new ProgressBarOptions
+                {
+                    DisplayTimeInRealTime = true,
+                    CollapseWhenFinished = false,
+                    ForegroundColor = ConsoleColor.White,
+                    BackgroundColor = ConsoleColor.DarkGray,
+                    ProgressCharacter = '─'
+                };
 
                 _计时器.Start();
-                var 下载任务 = new List<Task>();
-                foreach (var 文件 in 清单.Chuncks)
+
+                using (var 主进度条 = new ProgressBar(_总文件数, "下载进度", 进度条设置))
                 {
-                    if (_cts.IsCancellationRequested) break;
-                    await _并发信号量.WaitAsync(_cts.Token);
+                    主进度条.Tick(0);
 
-                    下载任务.Add(Task.Run(async () =>
+                    var 下载任务 = new List<Task>();
+                    foreach (var 文件 in 清单.Chuncks)
                     {
-                        try
-                        {
-                            await 下载文件_异步(文件, 分块地址前缀, 保存目录, _cts.Token);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                        }
-                        catch (Exception ex)
-                        {
-                            记录错误($"文件 {文件.File} 下载失败: {ex.Message}");
-                        }
-                        finally
-                        {
-                            _并发信号量.Release();
-                        }
-                    }, _cts.Token));
-                }
+                        if (_cts.IsCancellationRequested) break;
+                        await _并发信号量.WaitAsync(_cts.Token);
 
-                await Task.WhenAll(下载任务);
+                        下载任务.Add(Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await 下载文件_异步(文件, 分块地址前缀, 保存目录, _cts.Token);
+
+                                var newCount = Interlocked.Increment(ref _已完成文件数);
+                                主进度条.Tick(newCount, $"已完成: {newCount}/{_总文件数}");
+                            }
+                            catch (OperationCanceledException)
+                            {
+                            }
+                            catch (Exception ex)
+                            {
+                                记录错误($"文件 {文件.File} 下载失败: {ex.Message}");
+                            }
+                            finally
+                            {
+                                _并发信号量.Release();
+                            }
+                        }, _cts.Token));
+                    }
+
+                    await Task.WhenAll(下载任务);
+                }
 
                 if (!_cts.IsCancellationRequested)
                 {
                     _计时器.Stop();
                     var elapsed = _计时器.Elapsed;
                     Console.WriteLine($"下载用时：{elapsed.Hours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}");
-                    
+
                     Console.WriteLine("\n所有文件下载完成!");
                 }
             }
@@ -143,11 +165,6 @@ namespace SophonChunksDownloader
                 _日志队列.CompleteAdding();
                 await Task.Delay(100);
             }
-        }
-
-        private static string 确保斜杠结尾(string url)
-        {
-            return url.EndsWith("/") ? url : url + "/";
         }
 
         private static async Task 下载文件_异步(SophonChunkFile file, string 分块路径前缀, string 保存路径, CancellationToken ct)
@@ -168,7 +185,7 @@ namespace SophonChunksDownloader
                     var 存在文件Md5 = await 实用工具.计算Md5_异步(fs);
                     if (存在文件Md5.Equals(file.Md5, StringComparison.OrdinalIgnoreCase))
                     {
-                        Console.WriteLine($"文件已存在且MD5匹配，跳过下载: {filePath}");
+                        //Console.WriteLine($"文件已存在且MD5匹配，跳过下载: {filePath}");
                         return;
                     }
                 }
@@ -176,8 +193,7 @@ namespace SophonChunksDownloader
 
             try
             {
-                Console.WriteLine($"开始下载文件: {file.File}");
-                var 分块数量 = file.Chunks.Count;
+                //Console.WriteLine($"开始下载文件: {file.File}");
 
                 using (var fs = new FileStream(tmpPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, FileOptions.Asynchronous))
                 using (var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5))
@@ -194,12 +210,12 @@ namespace SophonChunksDownloader
                     if (!计算Md5.Equals(file.Md5, StringComparison.OrdinalIgnoreCase))
                     {
                         throw new Exception($"文件MD5校验失败: {filePath}\n" +
-                            $"计算MD5: {计算Md5}\n正确MD5: {file.Md5}");
+                            $"计算Md5: {计算Md5}\n正确MD5: {file.Md5}");
                     }
                 }
 
                 File.Move(tmpPath, filePath, true);
-                Console.WriteLine($"文件下载完成: {filePath}");
+                //Console.WriteLine($"文件下载完成: {filePath}");
             }
             catch
             {
