@@ -11,7 +11,7 @@
 1. 编译并运行项目
     ```shell
    dotnet build
-   cd .\bin\Debug\net9.0
+   cd .\bin\Debug\net9.0-windows
    .\SophonChunksDownloader.exe
    ```
 2. 输入清单配置的URL

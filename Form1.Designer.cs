@@ -35,7 +35,6 @@
             选择下载框 = new CheckedListBox();
             label2 = new Label();
             下载清单 = new Button();
-            backgroundWorker1 = new System.ComponentModel.BackgroundWorker();
             SuspendLayout();
             // 
             // 下载进度条
@@ -127,6 +126,5 @@
         private CheckedListBox 选择下载框;
         private Label label2;
         private Button 下载清单;
-        private System.ComponentModel.BackgroundWorker backgroundWorker1;
     }
 }

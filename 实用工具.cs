@@ -50,5 +50,21 @@ namespace SophonChunksDownloader
         {
             return url.EndsWith("/") ? url : url + "/";
         }
+
+        public static string 格式化速度(double 字节每秒)
+        {
+            if (字节每秒 < 1024)
+            {
+                return $"{字节每秒:F0} B/s";
+            }
+            else if (字节每秒 < 1024 * 1024)
+            {
+                return $"{字节每秒 / 1024:F1} KB/s";
+            }
+            else
+            {
+                return $"{字节每秒 / (1024 * 1024):F1} MB/s";
+            }
+        }
     }
 }

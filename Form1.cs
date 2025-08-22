@@ -20,6 +20,10 @@ namespace SophonChunksDownloader
         private long _总字节数 = 0;
         private long _已下载字节数 = 0;
 
+        private long _上次更新字节数 = 0;
+        private long _上次更新时间 = 0;
+        private string _当前速度 = "0 KB/s";
+
         private ManifestConfig _当前配置;
         private string _保存目录;
 
@@ -203,6 +207,10 @@ namespace SophonChunksDownloader
                 _已完成文件数 = 0;
                 _已下载字节数 = 0;
 
+                _上次更新字节数 = 0;
+                _上次更新时间 = Environment.TickCount;
+                _当前速度 = "0 KB/s";
+
                 int 最大并发 = 16;
                 _并发信号量 = new SemaphoreSlim(最大并发, 最大并发);
 
@@ -325,7 +333,23 @@ namespace SophonChunksDownloader
 
             var 进度百分比 = (int)((double)_已下载字节数 / _总字节数 * 100);
             下载进度条.Value = Math.Min(100, Math.Max(0, 进度百分比));
-            label2.Text = $"已完成: {_已完成文件数}/{_总文件数}, {实用工具.格式化文件大小(_已下载字节数)}/{实用工具.格式化文件大小(_总字节数)}";
+
+            long 当前时间 = Environment.TickCount;
+            long 时间差 = 当前时间 - _上次更新时间;
+
+            if (时间差 > 100)
+            {
+                long 字节增量 = _已下载字节数 - _上次更新字节数;
+                double 速度 = (字节增量 * 1000.0) / 时间差; // 字节/秒
+                _当前速度 = 实用工具.格式化速度(速度);
+
+                _上次更新字节数 = _已下载字节数;
+                _上次更新时间 = 当前时间;
+            }
+
+            label2.Text = $"已完成: {_已完成文件数}/{_总文件数}, " +
+                          $"{实用工具.格式化文件大小(_已下载字节数)}/{实用工具.格式化文件大小(_总字节数)} " +
+                          $"[速度: {_当前速度}]";
         }
 
         private async Task 处理分块_异步(
