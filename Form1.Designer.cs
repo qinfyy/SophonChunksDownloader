@@ -35,6 +35,7 @@
             选择下载框 = new CheckedListBox();
             label2 = new Label();
             下载清单 = new Button();
+            暂停按钮 = new Button();
             SuspendLayout();
             // 
             // 下载进度条
@@ -99,11 +100,23 @@
             下载清单.UseVisualStyleBackColor = true;
             下载清单.Click += 下载清单_Click;
             // 
+            // 暂停按钮
+            // 
+            暂停按钮.Enabled = false;
+            暂停按钮.Location = new Point(549, 91);
+            暂停按钮.Name = "暂停按钮";
+            暂停按钮.Size = new Size(104, 30);
+            暂停按钮.TabIndex = 9;
+            暂停按钮.Text = "暂停下载";
+            暂停按钮.UseVisualStyleBackColor = true;
+            暂停按钮.Click += 暂停按钮_Click;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 17F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(676, 251);
+            Controls.Add(暂停按钮);
             Controls.Add(下载清单);
             Controls.Add(label2);
             Controls.Add(选择下载框);
@@ -126,5 +139,6 @@
         private CheckedListBox 选择下载框;
         private Label label2;
         private Button 下载清单;
+        private Button 暂停按钮;
     }
 }

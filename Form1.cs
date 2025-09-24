@@ -1,4 +1,4 @@
-using ProtoBuf;
+ï»¿using ProtoBuf;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -9,130 +9,162 @@ namespace SophonChunksDownloader
     public partial class Form1 : Form
     {
         private static readonly HttpClient _hc = new HttpClient();
-        private static readonly string _´íÎóÎÄ¼şÂ·¾¶ = "´íÎó.txt";
-        private const int ×î´óÖØÊÔ´ÎÊı = 3;
-        private SemaphoreSlim _²¢·¢ĞÅºÅÁ¿;
-        private readonly BlockingCollection<string> _ÈÕÖ¾¶ÓÁĞ = new BlockingCollection<string>();
+        private static readonly string _é”™è¯¯æ–‡ä»¶è·¯å¾„ = "é”™è¯¯.txt";
+        private const int æœ€å¤§é‡è¯•æ¬¡æ•° = 3;
+        private SemaphoreSlim _å¹¶å‘ä¿¡å·é‡;
+        private readonly BlockingCollection<string> _æ—¥å¿—é˜Ÿåˆ— = new BlockingCollection<string>();
         private CancellationTokenSource _cts = new CancellationTokenSource();
 
-        private int _×ÜÎÄ¼şÊı = 0;
-        private int _ÒÑÍê³ÉÎÄ¼şÊı = 0;
-        private long _×Ü×Ö½ÚÊı = 0;
-        private long _ÒÑÏÂÔØ×Ö½ÚÊı = 0;
+        private int _æ€»æ–‡ä»¶æ•° = 0;
+        private int _å·²å®Œæˆæ–‡ä»¶æ•° = 0;
+        private long _æ€»å­—èŠ‚æ•° = 0;
+        private long _å·²ä¸‹è½½å­—èŠ‚æ•° = 0;
 
-        private long _ÉÏ´Î¸üĞÂ×Ö½ÚÊı = 0;
-        private long _ÉÏ´Î¸üĞÂÊ±¼ä = 0;
-        private string _µ±Ç°ËÙ¶È = "0 KB/s";
+        private long _ä¸Šæ¬¡æ›´æ–°å­—èŠ‚æ•° = 0;
+        private long _ä¸Šæ¬¡æ›´æ–°æ—¶é—´ = 0;
+        private string _å½“å‰é€Ÿåº¦ = "0 KB/s";
 
-        private ManifestConfig _µ±Ç°ÅäÖÃ;
-        private string _±£´æÄ¿Â¼;
+        private ManifestConfig _å½“å‰é…ç½®;
+        private string _ä¿å­˜ç›®å½•;
+
+        private bool _æš‚åœ = false;
+        private readonly ManualResetEventSlim _æš‚åœäº‹ä»¶ = new ManualResetEventSlim(true);
+        private readonly object _æš‚åœé” = new object();
 
         public Form1()
         {
             InitializeComponent();
-            Task.Run(Ğ´Èë´íÎó);
+            Task.Run(å†™å…¥é”™è¯¯);
         }
 
-        private async void ÏÂÔØÇåµ¥_Click(object sender, EventArgs e)
+        private void æš‚åœæŒ‰é’®_Click(object sender, EventArgs e)
         {
-            var ÊäÈëÂ·¾¶ = textBox1.Text.Trim().Trim('"');
-
-            if (string.IsNullOrEmpty(ÊäÈëÂ·¾¶))
+            if (!_æš‚åœ)
             {
-                MessageBox.Show("ÊäÈë²»ÄÜÎª¿Õ", "ÌáÊ¾", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                lock (_æš‚åœé”)
+                {
+                    _æš‚åœ = true;
+                    _æš‚åœäº‹ä»¶.Reset();
+                }
+                æš‚åœæŒ‰é’®.Text = "ç»§ç»­ä¸‹è½½";
+            }
+            else
+            {
+                lock (_æš‚åœé”)
+                {
+                    _æš‚åœ = false;
+                    _æš‚åœäº‹ä»¶.Set();
+                }
+                æš‚åœæŒ‰é’®.Text = "æš‚åœä¸‹è½½";
+            }
+        }
+
+        private async void ä¸‹è½½æ¸…å•_Click(object sender, EventArgs e)
+        {
+            var è¾“å…¥è·¯å¾„ = textBox1.Text.Trim().Trim('"');
+
+            if (string.IsNullOrEmpty(è¾“å…¥è·¯å¾„))
+            {
+                MessageBox.Show("è¾“å…¥ä¸èƒ½ä¸ºç©º", "æç¤º", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            ÏÂÔØÇåµ¥.Enabled = false;
-            label2.Text = "ÕıÔÚ»ñÈ¡ÅäÖÃ...";
+            ä¸‹è½½æ¸…å•.Enabled = false;
+            label2.Text = "æ­£åœ¨è·å–é…ç½®...";
             label2.Visible = true;
 
             try
             {
-                string ÅäÖÃJson;
+                string é…ç½®Json;
                 try
                 {
-                    if (ÊäÈëÂ·¾¶.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-                        || ÊäÈëÂ·¾¶.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    if (è¾“å…¥è·¯å¾„.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                        || è¾“å…¥è·¯å¾„.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                     {
-                        using (var rsp = await _hc.GetAsync(ÊäÈëÂ·¾¶, _cts.Token))
+                        using (var rsp = await _hc.GetAsync(è¾“å…¥è·¯å¾„, _cts.Token))
                         {
                             rsp.EnsureSuccessStatusCode();
-                            ÅäÖÃJson = await rsp.Content.ReadAsStringAsync(_cts.Token);
+                            é…ç½®Json = await rsp.Content.ReadAsStringAsync(_cts.Token);
                         }
                     }
                     else
                     {
-                        var ÎÄ¼şÂ·¾¶ = Path.GetFullPath(ÊäÈëÂ·¾¶);
-                        if (!File.Exists(ÎÄ¼şÂ·¾¶))
+                        var æ–‡ä»¶è·¯å¾„ = Path.GetFullPath(è¾“å…¥è·¯å¾„);
+                        if (!File.Exists(æ–‡ä»¶è·¯å¾„))
                         {
-                            throw new FileNotFoundException($"ÅäÖÃÎÄ¼ş²»´æÔÚ: {ÎÄ¼şÂ·¾¶}");
+                            throw new FileNotFoundException($"é…ç½®æ–‡ä»¶ä¸å­˜åœ¨: {æ–‡ä»¶è·¯å¾„}");
                         }
-                        ÅäÖÃJson = await File.ReadAllTextAsync(ÎÄ¼şÂ·¾¶, _cts.Token);
+                        é…ç½®Json = await File.ReadAllTextAsync(æ–‡ä»¶è·¯å¾„, _cts.Token);
                     }
                 }
                 catch (Exception ex)
                 {
-                    ¼ÇÂ¼´íÎó($"ÅäÖÃ»ñÈ¡Ê§°Ü: {ex.Message}");
+                    è®°å½•é”™è¯¯($"é…ç½®è·å–å¤±è´¥: {ex.Message}");
                     return;
                 }
 
                 try
                 {
-                    _µ±Ç°ÅäÖÃ = JsonSerializer.Deserialize<ManifestConfig>(ÅäÖÃJson);
+                    _å½“å‰é…ç½® = JsonSerializer.Deserialize<ManifestConfig>(é…ç½®Json);
                 }
                 catch (Exception ex)
                 {
-                    ¼ÇÂ¼´íÎó($"ÅäÖÃ½âÎöÊ§°Ü: {ex.Message}");
+                    è®°å½•é”™è¯¯($"é…ç½®è§£æå¤±è´¥: {ex.Message}");
                     return;
                 }
 
-                if (_µ±Ç°ÅäÖÃ.retcode != 0)
+                if (_å½“å‰é…ç½®.retcode != 0)
                 {
-                    ¼ÇÂ¼´íÎó($"ÅäÖÃ·µ»Ø´íÎó: {_µ±Ç°ÅäÖÃ.message}");
+                    è®°å½•é”™è¯¯($"é…ç½®è¿”å›é”™è¯¯: {_å½“å‰é…ç½®.message}");
                     return;
                 }
 
-                label2.Text = $"ÒÑ»ñÈ¡ÅäÖÃ£¬Tag: {_µ±Ç°ÅäÖÃ.data.tag}";
-                Ñ¡ÔñÏÂÔØ¿ò.Items.Clear();
+                label2.Text = $"å·²è·å–é…ç½®ï¼ŒTag: {_å½“å‰é…ç½®.data.tag}";
+                é€‰æ‹©ä¸‹è½½æ¡†.Items.Clear();
 
-                foreach (var manifest in _µ±Ç°ÅäÖÃ.data.manifests)
+                foreach (var manifest in _å½“å‰é…ç½®.data.manifests)
                 {
-                    Ñ¡ÔñÏÂÔØ¿ò.Items.Add(manifest.category_name, false);
+                    é€‰æ‹©ä¸‹è½½æ¡†.Items.Add(manifest.category_name, false);
                 }
 
-                ÏÂÔØÓÎÏ·.Enabled = true;
+                ä¸‹è½½æ¸¸æˆ.Enabled = true;
             }
             catch (Exception ex)
             {
-                ¼ÇÂ¼´íÎó($"»ñÈ¡Çåµ¥Ê§°Ü: {ex.Message}");
+                è®°å½•é”™è¯¯($"è·å–æ¸…å•å¤±è´¥: {ex.Message}");
             }
             finally
             {
-                ÏÂÔØÇåµ¥.Enabled = true;
+                ä¸‹è½½æ¸…å•.Enabled = true;
             }
         }
 
-        private async void ÏÂÔØÓÎÏ·_Click(object sender, EventArgs e)
+        private async void ä¸‹è½½æ¸¸æˆ_Click(object sender, EventArgs e)
         {
-            if (_µ±Ç°ÅäÖÃ == null)
+            if (_å½“å‰é…ç½® == null)
             {
-                MessageBox.Show("ÇëÏÈÏÂÔØÇåµ¥", "ÌáÊ¾", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("è¯·å…ˆä¸‹è½½æ¸…å•", "æç¤º", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            var Ñ¡ÖĞµÄÎÄ¼ş = new List<ManifestCategory>();
-            for (int i = 0; i < Ñ¡ÔñÏÂÔØ¿ò.Items.Count; i++)
+            if (ä¸‹è½½æ¸¸æˆ.Text == "å–æ¶ˆä¸‹è½½")
             {
-                if (Ñ¡ÔñÏÂÔØ¿ò.GetItemChecked(i))
+                _cts.Cancel();
+                return;
+            }
+
+            var é€‰ä¸­çš„æ–‡ä»¶ = new List<ManifestCategory>();
+            for (int i = 0; i < é€‰æ‹©ä¸‹è½½æ¡†.Items.Count; i++)
+            {
+                if (é€‰æ‹©ä¸‹è½½æ¡†.GetItemChecked(i))
                 {
-                    Ñ¡ÖĞµÄÎÄ¼ş.Add(_µ±Ç°ÅäÖÃ.data.manifests[i]);
+                    é€‰ä¸­çš„æ–‡ä»¶.Add(_å½“å‰é…ç½®.data.manifests[i]);
                 }
             }
 
-            if (Ñ¡ÖĞµÄÎÄ¼ş.Count == 0)
+            if (é€‰ä¸­çš„æ–‡ä»¶.Count == 0)
             {
-                MessageBox.Show("ÇëÖÁÉÙÑ¡ÔñÒ»¸öÏÂÔØÏî", "ÌáÊ¾", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("è¯·è‡³å°‘é€‰æ‹©ä¸€ä¸ªä¸‹è½½é¡¹", "æç¤º", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -140,7 +172,7 @@ namespace SophonChunksDownloader
             {
                 if (folderDialog.ShowDialog() == DialogResult.OK)
                 {
-                    _±£´æÄ¿Â¼ = folderDialog.SelectedPath;
+                    _ä¿å­˜ç›®å½• = folderDialog.SelectedPath;
                 }
                 else
                 {
@@ -148,126 +180,167 @@ namespace SophonChunksDownloader
                 }
             }
 
-            ÏÂÔØÓÎÏ·.Enabled = false;
-            ÏÂÔØÇåµ¥.Enabled = false;
-            Ñ¡ÔñÏÂÔØ¿ò.Enabled = false;
-            label2.Text = "¿ªÊ¼ÏÂÔØÎÄ¼ş...";
-            ÏÂÔØ½ø¶ÈÌõ.Value = 0;
+            _cts?.Cancel();
+            _cts?.Dispose();
+            _cts = new CancellationTokenSource();
+
+            ä¸‹è½½æ¸¸æˆ.Text = "å–æ¶ˆä¸‹è½½";
+            ä¸‹è½½æ¸…å•.Enabled = false;
+            é€‰æ‹©ä¸‹è½½æ¡†.Enabled = false;
+            æš‚åœæŒ‰é’®.Enabled = true;
+            label2.Text = "å¼€å§‹ä¸‹è½½æ–‡ä»¶...";
+            ä¸‹è½½è¿›åº¦æ¡.Value = 0;
+
+            bool è¢«å–æ¶ˆ = false;
 
             try
             {
-                var ËùÓĞÎÄ¼şÁĞ±í = new List<SophonChunkFile>();
-                var ÎÄ¼şÇåµ¥×Öµä = new Dictionary<SophonChunkFile, string>();
+                var æ‰€æœ‰æ–‡ä»¶åˆ—è¡¨ = new List<SophonChunkFile>();
+                var æ–‡ä»¶æ¸…å•å­—å…¸ = new Dictionary<string, string>();
 
-                label2.Text = "ÕıÔÚÏÂÔØÇåµ¥...";
-                foreach (var ÎÄ¼şĞÅÏ¢ in Ñ¡ÖĞµÄÎÄ¼ş)
+                label2.Text = "æ­£åœ¨ä¸‹è½½æ¸…å•...";
+                foreach (var æ–‡ä»¶ä¿¡æ¯ in é€‰ä¸­çš„æ–‡ä»¶)
                 {
-                    var Çåµ¥µØÖ·Ç°×º = ÊµÓÃ¹¤¾ß.È·±£Ğ±¸Ü½áÎ²(ÎÄ¼şĞÅÏ¢.manifest_download.url_prefix);
-                    var Çåµ¥Id = ÎÄ¼şĞÅÏ¢.manifest.id;
-                    var ·Ö¿éµØÖ·Ç°×º = ÊµÓÃ¹¤¾ß.È·±£Ğ±¸Ü½áÎ²(ÎÄ¼şĞÅÏ¢.chunk_download.url_prefix);
+                    var æ¸…å•åœ°å€å‰ç¼€ = å®ç”¨å·¥å…·.ç¡®ä¿æ–œæ ç»“å°¾(æ–‡ä»¶ä¿¡æ¯.manifest_download.url_prefix);
+                    var æ¸…å•Id = æ–‡ä»¶ä¿¡æ¯.manifest.id;
+                    var åˆ†å—åœ°å€å‰ç¼€ = å®ç”¨å·¥å…·.ç¡®ä¿æ–œæ ç»“å°¾(æ–‡ä»¶ä¿¡æ¯.chunk_download.url_prefix);
 
-                    byte[] Çåµ¥Êı¾İ;
+                    byte[] æ¸…å•æ•°æ®;
                     try
                     {
-                        using (var rsp = await _hc.GetAsync(Çåµ¥µØÖ·Ç°×º + Çåµ¥Id, HttpCompletionOption.ResponseHeadersRead, _cts.Token))
+                        using (var rsp = await _hc.GetAsync(æ¸…å•åœ°å€å‰ç¼€ + æ¸…å•Id, HttpCompletionOption.ResponseHeadersRead, _cts.Token))
                         {
                             rsp.EnsureSuccessStatusCode();
-                            Çåµ¥Êı¾İ = await rsp.Content.ReadAsByteArrayAsync(_cts.Token);
+                            æ¸…å•æ•°æ® = await rsp.Content.ReadAsByteArrayAsync(_cts.Token);
                         }
                     }
                     catch (Exception ex)
                     {
-                        ¼ÇÂ¼´íÎó($"Çåµ¥ÏÂÔØÊ§°Ü: {Çåµ¥µØÖ·Ç°×º}{Çåµ¥Id}\n{ex.Message}");
+                        è®°å½•é”™è¯¯($"æ¸…å•ä¸‹è½½å¤±è´¥: {æ¸…å•åœ°å€å‰ç¼€}{æ¸…å•Id}\n{ex.Message}");
                         continue;
                     }
 
                     using var decompressor = new Decompressor();
-                    var ½âÑ¹Çåµ¥ = decompressor.Unwrap(Çåµ¥Êı¾İ);
-                    var Çåµ¥ = Serializer.Deserialize<SophonChunkManifest>(½âÑ¹Çåµ¥);
+                    var è§£å‹æ¸…å• = decompressor.Unwrap(æ¸…å•æ•°æ®);
+                    var æ¸…å• = Serializer.Deserialize<SophonChunkManifest>(è§£å‹æ¸…å•);
 
-                    var ´óĞ¡ = Çåµ¥.Chuncks.Sum(a => a.Size);
-                    label2.Text = $"ÒÑÏÂÔØ {ÎÄ¼şĞÅÏ¢.category_name} Çåµ¥£¬°üº¬ {Çåµ¥.Chuncks.Count} ¸öÎÄ¼ş";
+                    label2.Text = $"å·²ä¸‹è½½ {æ–‡ä»¶ä¿¡æ¯.category_name} æ¸…å•ï¼ŒåŒ…å« {æ¸…å•.Chuncks.Count} ä¸ªæ–‡ä»¶";
 
-                    foreach (var ÎÄ¼ş in Çåµ¥.Chuncks)
+                    foreach (var æ–‡ä»¶ in æ¸…å•.Chuncks)
                     {
-                        ËùÓĞÎÄ¼şÁĞ±í.Add(ÎÄ¼ş);
-                        ÎÄ¼şÇåµ¥×Öµä[ÎÄ¼ş] = ·Ö¿éµØÖ·Ç°×º;
+                        æ‰€æœ‰æ–‡ä»¶åˆ—è¡¨.Add(æ–‡ä»¶);
+                        æ–‡ä»¶æ¸…å•å­—å…¸[æ–‡ä»¶.File] = åˆ†å—åœ°å€å‰ç¼€;
                     }
                 }
 
-                _×ÜÎÄ¼şÊı = ËùÓĞÎÄ¼şÁĞ±í.Count;
-                if (_×ÜÎÄ¼şÊı == 0)
+                _æ€»æ–‡ä»¶æ•° = æ‰€æœ‰æ–‡ä»¶åˆ—è¡¨.Count;
+                if (_æ€»æ–‡ä»¶æ•° == 0)
                 {
-                    label2.Text = "Ã»ÓĞÕÒµ½ÈÎºÎĞèÒªÏÂÔØµÄÎÄ¼ş";
+                    label2.Text = "æ²¡æœ‰æ‰¾åˆ°ä»»ä½•éœ€è¦ä¸‹è½½çš„æ–‡ä»¶";
                     return;
                 }
 
-                _×Ü×Ö½ÚÊı = ËùÓĞÎÄ¼şÁĞ±í.Sum(a => a.Size);
-                label2.Text = $"ÎÄ¼ş×ÜÊı£º{_×ÜÎÄ¼şÊı} £¬¹² {ÊµÓÃ¹¤¾ß.¸ñÊ½»¯ÎÄ¼ş´óĞ¡(_×Ü×Ö½ÚÊı)}";
-                _ÒÑÍê³ÉÎÄ¼şÊı = 0;
-                _ÒÑÏÂÔØ×Ö½ÚÊı = 0;
+                _æ€»å­—èŠ‚æ•° = æ‰€æœ‰æ–‡ä»¶åˆ—è¡¨.Sum(a => a.Size);
+                label2.Text = $"æ–‡ä»¶æ€»æ•°ï¼š{_æ€»æ–‡ä»¶æ•°} ï¼Œå…± {å®ç”¨å·¥å…·.æ ¼å¼åŒ–æ–‡ä»¶å¤§å°(_æ€»å­—èŠ‚æ•°)}";
+                _å·²å®Œæˆæ–‡ä»¶æ•° = 0;
+                _å·²ä¸‹è½½å­—èŠ‚æ•° = 0;
 
-                _ÉÏ´Î¸üĞÂ×Ö½ÚÊı = 0;
-                _ÉÏ´Î¸üĞÂÊ±¼ä = Environment.TickCount;
-                _µ±Ç°ËÙ¶È = "0 KB/s";
+                _ä¸Šæ¬¡æ›´æ–°å­—èŠ‚æ•° = 0;
+                _ä¸Šæ¬¡æ›´æ–°æ—¶é—´ = Environment.TickCount;
+                _å½“å‰é€Ÿåº¦ = "0 KB/s";
 
-                int ×î´ó²¢·¢ = 16;
-                _²¢·¢ĞÅºÅÁ¿ = new SemaphoreSlim(×î´ó²¢·¢, ×î´ó²¢·¢);
+                int æœ€å¤§å¹¶å‘ = 16;
+                _å¹¶å‘ä¿¡å·é‡ = new SemaphoreSlim(æœ€å¤§å¹¶å‘, æœ€å¤§å¹¶å‘);
 
-                var ÏÂÔØÈÎÎñ = new List<Task>();
-                foreach (var ÎÄ¼ş in ËùÓĞÎÄ¼şÁĞ±í)
+                var ä¸‹è½½ä»»åŠ¡ = new List<Task>();
+                foreach (var æ–‡ä»¶ in æ‰€æœ‰æ–‡ä»¶åˆ—è¡¨)
                 {
                     if (_cts.IsCancellationRequested) break;
-                    await _²¢·¢ĞÅºÅÁ¿.WaitAsync(_cts.Token);
+                    await _å¹¶å‘ä¿¡å·é‡.WaitAsync(_cts.Token);
 
-                    ÏÂÔØÈÎÎñ.Add(Task.Run(async () =>
+                    ä¸‹è½½ä»»åŠ¡.Add(Task.Run(async () =>
                     {
                         try
                         {
-                            await ÏÂÔØÎÄ¼ş_Òì²½(ÎÄ¼ş, ÎÄ¼şÇåµ¥×Öµä[ÎÄ¼ş], _±£´æÄ¿Â¼, _cts.Token);
+                            await ä¸‹è½½æ–‡ä»¶_å¼‚æ­¥(æ–‡ä»¶, æ–‡ä»¶æ¸…å•å­—å…¸[æ–‡ä»¶.File], _ä¿å­˜ç›®å½•, _cts.Token);
                         }
                         catch (OperationCanceledException)
                         {
+                            // å–æ¶ˆ
                         }
                         catch (Exception ex)
                         {
-                            ¼ÇÂ¼´íÎó($"ÎÄ¼ş {ÎÄ¼ş.File} ÏÂÔØÊ§°Ü: {ex.Message}");
+                            è®°å½•é”™è¯¯($"æ–‡ä»¶ {æ–‡ä»¶.File} ä¸‹è½½å¤±è´¥: {ex.Message}");
                         }
                         finally
                         {
-                            _²¢·¢ĞÅºÅÁ¿.Release();
+                            _å¹¶å‘ä¿¡å·é‡.Release();
                         }
                     }, _cts.Token));
                 }
 
-                await Task.WhenAll(ÏÂÔØÈÎÎñ);
+                await Task.WhenAll(ä¸‹è½½ä»»åŠ¡);
 
                 if (!_cts.IsCancellationRequested)
                 {
-                    label2.Text = "ÏÂÔØÍê³É£¡";
-                    ÏÂÔØ½ø¶ÈÌõ.Value = 100;
-
-                    MessageBox.Show("ÏÂÔØÒÑÍê³É£¡", "ÌáÊ¾", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    label2.Text = "ä¸‹è½½å®Œæˆï¼";
+                    ä¸‹è½½è¿›åº¦æ¡.Value = 100;
+                    MessageBox.Show("ä¸‹è½½å·²å®Œæˆï¼", "æç¤º", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
+                else
+                {
+                    è¢«å–æ¶ˆ = true;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                è¢«å–æ¶ˆ = true;
             }
             catch (Exception ex)
             {
-                ¼ÇÂ¼´íÎó($"ÏÂÔØÊ§°Ü: {ex.Message}");
-                MessageBox.Show($"ÏÂÔØÊ§°Ü: \n{ex.Message}", "´íÎó", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                è®°å½•é”™è¯¯($"ä¸‹è½½å¤±è´¥: {ex.Message}");
+                MessageBox.Show($"ä¸‹è½½å¤±è´¥: \n{ex.Message}", "é”™è¯¯", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
-                ÏÂÔØÓÎÏ·.Enabled = true;
-                ÏÂÔØÇåµ¥.Enabled = true;
-                Ñ¡ÔñÏÂÔØ¿ò.Enabled = false;
+                ä¸‹è½½æ¸¸æˆ.Text = "ä¸‹è½½æ¸¸æˆ";
+                ä¸‹è½½æ¸…å•.Enabled = true;
+                é€‰æ‹©ä¸‹è½½æ¡†.Enabled = true;
+                æš‚åœæŒ‰é’®.Enabled = false;
+                _æš‚åœ = false;
+                _æš‚åœäº‹ä»¶.Set();
+
+                if (è¢«å–æ¶ˆ)
+                {
+                    Action é‡ç½®çŠ¶æ€ = () =>
+                    {
+                        _æ€»æ–‡ä»¶æ•° = 0;
+                        _å·²å®Œæˆæ–‡ä»¶æ•° = 0;
+                        _æ€»å­—èŠ‚æ•° = 0;
+                        _å·²ä¸‹è½½å­—èŠ‚æ•° = 0;
+                        _ä¸Šæ¬¡æ›´æ–°å­—èŠ‚æ•° = 0;
+                        _å½“å‰é€Ÿåº¦ = "0 KB/s";
+                        ä¸‹è½½è¿›åº¦æ¡.Value = 0;
+                        label2.Text = "";
+                    };
+
+                    if (InvokeRequired)
+                        Invoke(é‡ç½®çŠ¶æ€);
+                    else
+                        é‡ç½®çŠ¶æ€();
+
+                    MessageBox.Show("ä¸‹è½½å·²å–æ¶ˆ", "æç¤º", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
             }
         }
 
-        private async Task ÏÂÔØÎÄ¼ş_Òì²½(SophonChunkFile file, string ·Ö¿éÂ·¾¶Ç°×º, string ±£´æÂ·¾¶, CancellationToken ct)
+        private async Task ä¸‹è½½æ–‡ä»¶_å¼‚æ­¥(SophonChunkFile file, string åˆ†å—è·¯å¾„å‰ç¼€, string ä¿å­˜è·¯å¾„, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
 
-            var filePath = Path.Combine(±£´æÂ·¾¶, file.File);
+            _æš‚åœäº‹ä»¶.Wait(ct);
+
+            var filePath = Path.Combine(ä¿å­˜è·¯å¾„, file.File);
             var tmpPath = filePath + ".tmp";
             if (File.Exists(tmpPath))
                 File.Delete(tmpPath);
@@ -278,12 +351,12 @@ namespace SophonChunksDownloader
             {
                 using (var fs = File.OpenRead(filePath))
                 {
-                    var ´æÔÚÎÄ¼şMd5 = await ÊµÓÃ¹¤¾ß.¼ÆËãMd5_Òì²½(fs);
-                    if (´æÔÚÎÄ¼şMd5.Equals(file.Md5, StringComparison.OrdinalIgnoreCase))
+                    var å­˜åœ¨æ–‡ä»¶Md5 = await å®ç”¨å·¥å…·.è®¡ç®—Md5_å¼‚æ­¥(fs);
+                    if (å­˜åœ¨æ–‡ä»¶Md5.Equals(file.Md5, StringComparison.OrdinalIgnoreCase))
                     {
-                        Interlocked.Add(ref _ÒÑÏÂÔØ×Ö½ÚÊı, file.Size);
-                        var ĞÂÎÄ¼şÊı = Interlocked.Increment(ref _ÒÑÍê³ÉÎÄ¼şÊı);
-                        ¸üĞÂ½ø¶È();
+                        Interlocked.Add(ref _å·²ä¸‹è½½å­—èŠ‚æ•°, file.Size);
+                        var æ–°æ–‡ä»¶æ•° = Interlocked.Increment(ref _å·²å®Œæˆæ–‡ä»¶æ•°);
+                        æ›´æ–°è¿›åº¦();
                         return;
                     }
                 }
@@ -297,14 +370,15 @@ namespace SophonChunksDownloader
                     foreach (var chunk in file.Chunks)
                     {
                         ct.ThrowIfCancellationRequested();
-                        await ´¦Àí·Ö¿é_Òì²½(chunk, ·Ö¿éÂ·¾¶Ç°×º, fs, md5, ct);
+                        _æš‚åœäº‹ä»¶.Wait(ct); // æš‚åœ
+                        await å¤„ç†åˆ†å—_å¼‚æ­¥(chunk, åˆ†å—è·¯å¾„å‰ç¼€, fs, md5, ct);
                     }
 
-                    var ¼ÆËãMd5 = BitConverter.ToString(md5.GetHashAndReset()).Replace("-", "").ToLower();
+                    var è®¡ç®—Md5 = BitConverter.ToString(md5.GetHashAndReset()).Replace("-", "").ToLower();
 
-                    if (!¼ÆËãMd5.Equals(file.Md5, StringComparison.OrdinalIgnoreCase))
+                    if (!è®¡ç®—Md5.Equals(file.Md5, StringComparison.OrdinalIgnoreCase))
                     {
-                        throw new Exception($"ÎÄ¼şMD5Ğ£ÑéÊ§°Ü: {filePath}\n¼ÆËãMd5: {¼ÆËãMd5}\nÕıÈ·MD5: {file.Md5}");
+                        throw new Exception($"æ–‡ä»¶MD5æ ¡éªŒå¤±è´¥: {filePath}\nè®¡ç®—Md5: {è®¡ç®—Md5}\næ­£ç¡®MD5: {file.Md5}");
                     }
                 }
 
@@ -318,173 +392,181 @@ namespace SophonChunksDownloader
             }
             finally
             {
-                var ĞÂÎÄ¼şÊı = Interlocked.Increment(ref _ÒÑÍê³ÉÎÄ¼şÊı);
-                ¸üĞÂ½ø¶È();
+                var æ–°æ–‡ä»¶æ•° = Interlocked.Increment(ref _å·²å®Œæˆæ–‡ä»¶æ•°);
+                æ›´æ–°è¿›åº¦();
             }
         }
 
-        private void ¸üĞÂ½ø¶È()
+        private void æ›´æ–°è¿›åº¦()
         {
             if (InvokeRequired)
             {
-                Invoke(new Action(¸üĞÂ½ø¶È));
+                Invoke(new Action(æ›´æ–°è¿›åº¦));
                 return;
             }
 
-            var ½ø¶È°Ù·Ö±È = (int)((double)_ÒÑÏÂÔØ×Ö½ÚÊı / _×Ü×Ö½ÚÊı * 100);
-            ÏÂÔØ½ø¶ÈÌõ.Value = Math.Min(100, Math.Max(0, ½ø¶È°Ù·Ö±È));
+            var è¿›åº¦ç™¾åˆ†æ¯” = (int)((double)_å·²ä¸‹è½½å­—èŠ‚æ•° / _æ€»å­—èŠ‚æ•° * 100);
+            ä¸‹è½½è¿›åº¦æ¡.Value = Math.Min(100, Math.Max(0, è¿›åº¦ç™¾åˆ†æ¯”));
 
-            long µ±Ç°Ê±¼ä = Environment.TickCount;
-            long Ê±¼ä²î = µ±Ç°Ê±¼ä - _ÉÏ´Î¸üĞÂÊ±¼ä;
+            long å½“å‰æ—¶é—´ = Environment.TickCount;
+            long æ—¶é—´å·® = å½“å‰æ—¶é—´ - _ä¸Šæ¬¡æ›´æ–°æ—¶é—´;
 
-            if (Ê±¼ä²î > 100)
+            if (æ—¶é—´å·® > 100)
             {
-                long ×Ö½ÚÔöÁ¿ = _ÒÑÏÂÔØ×Ö½ÚÊı - _ÉÏ´Î¸üĞÂ×Ö½ÚÊı;
-                double ËÙ¶È = (×Ö½ÚÔöÁ¿ * 1000.0) / Ê±¼ä²î; // ×Ö½Ú/Ãë
-                _µ±Ç°ËÙ¶È = ÊµÓÃ¹¤¾ß.¸ñÊ½»¯ËÙ¶È(ËÙ¶È);
+                long å­—èŠ‚å¢é‡ = _å·²ä¸‹è½½å­—èŠ‚æ•° - _ä¸Šæ¬¡æ›´æ–°å­—èŠ‚æ•°;
+                double é€Ÿåº¦ = (å­—èŠ‚å¢é‡ * 1000.0) / æ—¶é—´å·®; // å­—èŠ‚/ç§’
+                _å½“å‰é€Ÿåº¦ = å®ç”¨å·¥å…·.æ ¼å¼åŒ–é€Ÿåº¦(é€Ÿåº¦);
 
-                _ÉÏ´Î¸üĞÂ×Ö½ÚÊı = _ÒÑÏÂÔØ×Ö½ÚÊı;
-                _ÉÏ´Î¸üĞÂÊ±¼ä = µ±Ç°Ê±¼ä;
+                _ä¸Šæ¬¡æ›´æ–°å­—èŠ‚æ•° = _å·²ä¸‹è½½å­—èŠ‚æ•°;
+                _ä¸Šæ¬¡æ›´æ–°æ—¶é—´ = å½“å‰æ—¶é—´;
             }
 
-            label2.Text = $"ÒÑÍê³É: {_ÒÑÍê³ÉÎÄ¼şÊı}/{_×ÜÎÄ¼şÊı}, " +
-                          $"{ÊµÓÃ¹¤¾ß.¸ñÊ½»¯ÎÄ¼ş´óĞ¡(_ÒÑÏÂÔØ×Ö½ÚÊı)}/{ÊµÓÃ¹¤¾ß.¸ñÊ½»¯ÎÄ¼ş´óĞ¡(_×Ü×Ö½ÚÊı)} " +
-                          $"[ËÙ¶È: {_µ±Ç°ËÙ¶È}]";
+            label2.Text = $"å·²å®Œæˆ: {_å·²å®Œæˆæ–‡ä»¶æ•°}/{_æ€»æ–‡ä»¶æ•°}, " +
+                          $"{å®ç”¨å·¥å…·.æ ¼å¼åŒ–æ–‡ä»¶å¤§å°(_å·²ä¸‹è½½å­—èŠ‚æ•°)}/{å®ç”¨å·¥å…·.æ ¼å¼åŒ–æ–‡ä»¶å¤§å°(_æ€»å­—èŠ‚æ•°)} " +
+                          $"[é€Ÿåº¦: {_å½“å‰é€Ÿåº¦}]";
         }
 
-        private async Task ´¦Àí·Ö¿é_Òì²½(
+        private async Task å¤„ç†åˆ†å—_å¼‚æ­¥(
             SophonChunk chunk,
-            string ·Ö¿éÂ·¾¶Ç°×º,
-            FileStream Êä³öÁ÷,
+            string åˆ†å—è·¯å¾„å‰ç¼€,
+            FileStream è¾“å‡ºæµ,
             IncrementalHash md5,
             CancellationToken ct)
         {
-            var url = ·Ö¿éÂ·¾¶Ç°×º + chunk.Id;
-            Exception Òì³£ = null;
+            var url = åˆ†å—è·¯å¾„å‰ç¼€ + chunk.Id;
+            Exception å¼‚å¸¸ = null;
 
-            using (var Ñ¹ËõÊı¾İ = new MemoryStream())
+            using (var å‹ç¼©æ•°æ® = new MemoryStream())
             {
-                for (int i = 0; i < ×î´óÖØÊÔ´ÎÊı; i++)
+                for (int i = 0; i < æœ€å¤§é‡è¯•æ¬¡æ•°; i++)
                 {
                     try
                     {
-                        Ñ¹ËõÊı¾İ.SetLength(0);
+                        å‹ç¼©æ•°æ®.SetLength(0);
                         using (var response = await _hc.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct))
                         {
                             response.EnsureSuccessStatusCode();
-                            await response.Content.CopyToAsync(Ñ¹ËõÊı¾İ, ct);
+                            await response.Content.CopyToAsync(å‹ç¼©æ•°æ®, ct);
                             break;
                         }
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
-                        Òì³£ = ex;
-                        if (i < ×î´óÖØÊÔ´ÎÊı - 1)
+                        å¼‚å¸¸ = ex;
+                        if (i < æœ€å¤§é‡è¯•æ¬¡æ•° - 1)
                         {
                             await Task.Delay((int)Math.Pow(2, i) * 1000, ct);
                         }
                     }
                 }
 
-                if (Ñ¹ËõÊı¾İ.Length == 0)
+                if (å‹ç¼©æ•°æ®.Length == 0)
                 {
-                    throw new Exception($"ÏÂÔØÊ§°Ü(ÖØÊÔ{×î´óÖØÊÔ´ÎÊı}´Î): {url}\nÔ­Òò: {Òì³£?.Message}");
+                    throw new Exception($"ä¸‹è½½å¤±è´¥(é‡è¯•{æœ€å¤§é‡è¯•æ¬¡æ•°}æ¬¡): {url}\nåŸå› : {å¼‚å¸¸?.Message}");
                 }
 
-                if (Ñ¹ËõÊı¾İ.Length != chunk.CompressedSize)
+                if (å‹ç¼©æ•°æ®.Length != chunk.CompressedSize)
                 {
-                    throw new Exception($"Ñ¹ËõÊı¾İ´óĞ¡²»Æ¥Åä: {chunk.Id}\nÆÚÍû´óĞ¡: {chunk.CompressedSize}\nÊµ¼Ê´óĞ¡: {Ñ¹ËõÊı¾İ.Length}");
+                    throw new Exception($"å‹ç¼©æ•°æ®å¤§å°ä¸åŒ¹é…: {chunk.Id}\næœŸæœ›å¤§å°: {chunk.CompressedSize}\nå®é™…å¤§å°: {å‹ç¼©æ•°æ®.Length}");
                 }
 
-                Ñ¹ËõÊı¾İ.Seek(0, SeekOrigin.Begin);
-                var Ñ¹ËõÊı¾İMd5 = await ÊµÓÃ¹¤¾ß.¼ÆËãMd5_Òì²½(Ñ¹ËõÊı¾İ);
-                if (!Ñ¹ËõÊı¾İMd5.Equals(chunk.CompressedMd5, StringComparison.OrdinalIgnoreCase))
+                å‹ç¼©æ•°æ®.Seek(0, SeekOrigin.Begin);
+                var å‹ç¼©æ•°æ®Md5 = await å®ç”¨å·¥å…·.è®¡ç®—Md5_å¼‚æ­¥(å‹ç¼©æ•°æ®);
+                if (!å‹ç¼©æ•°æ®Md5.Equals(chunk.CompressedMd5, StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new Exception($"Ñ¹ËõÊı¾İMD5Ğ£ÑéÊ§°Ü: {chunk.Id}\n¼ÆËãMD5: {Ñ¹ËõÊı¾İMd5}\nÕıÈ·MD5: {chunk.CompressedMd5}");
+                    throw new Exception($"å‹ç¼©æ•°æ®MD5æ ¡éªŒå¤±è´¥: {chunk.Id}\nè®¡ç®—MD5: {å‹ç¼©æ•°æ®Md5}\næ­£ç¡®MD5: {chunk.CompressedMd5}");
                 }
-                Ñ¹ËõÊı¾İ.Seek(0, SeekOrigin.Begin);
+                å‹ç¼©æ•°æ®.Seek(0, SeekOrigin.Begin);
 
-                using (var ½âÑ¹Êı¾İ = new MemoryStream())
+                using (var è§£å‹æ•°æ® = new MemoryStream())
                 {
-                    await ½âÑ¹·Ö¿é_Òì²½(
+                    await è§£å‹åˆ†å—_å¼‚æ­¥(
                         chunk,
-                        Ñ¹ËõÊı¾İ,
-                        ½âÑ¹Êı¾İ,
+                        å‹ç¼©æ•°æ®,
+                        è§£å‹æ•°æ®,
                         md5,
                         ct
                     );
 
-                    long ·Ö¿éÊµ¼Ê´óĞ¡ = chunk.UncompressedSize;
-                    Interlocked.Add(ref _ÒÑÏÂÔØ×Ö½ÚÊı, ·Ö¿éÊµ¼Ê´óĞ¡);
-                    ¸üĞÂ½ø¶È();
+                    long åˆ†å—å®é™…å¤§å° = chunk.UncompressedSize;
+                    Interlocked.Add(ref _å·²ä¸‹è½½å­—èŠ‚æ•°, åˆ†å—å®é™…å¤§å°);
+                    æ›´æ–°è¿›åº¦();
 
-                    ½âÑ¹Êı¾İ.Seek(0, SeekOrigin.Begin);
-                    await ½âÑ¹Êı¾İ.CopyToAsync(Êä³öÁ÷, ct);
+                    è§£å‹æ•°æ®.Seek(0, SeekOrigin.Begin);
+                    await è§£å‹æ•°æ®.CopyToAsync(è¾“å‡ºæµ, ct);
                 }
             }
         }
 
-        private static async Task ½âÑ¹·Ö¿é_Òì²½(
+        private static async Task è§£å‹åˆ†å—_å¼‚æ­¥(
             SophonChunk chunk,
-            Stream Ñ¹ËõÊı¾İÁ÷,
-            Stream Êä³öÁ÷,
+            Stream å‹ç¼©æ•°æ®æµ,
+            Stream è¾“å‡ºæµ,
             IncrementalHash md5,
             CancellationToken ct)
         {
-            using (var ½âÑ¹Á÷ = new DecompressionStream(Ñ¹ËõÊı¾İÁ÷))
+            using (var è§£å‹æµ = new DecompressionStream(å‹ç¼©æ•°æ®æµ))
             {
-                const int »º³åÇø´óĞ¡ = 524288;
-                var »º³åÇø = new byte[»º³åÇø´óĞ¡];
+                const int ç¼“å†²åŒºå¤§å° = 524288;
+                var ç¼“å†²åŒº = new byte[ç¼“å†²åŒºå¤§å°];
                 long pos = 0;
-                using (var Ô­Ê¼Md5 = MD5.Create())
+                using (var åŸå§‹Md5 = MD5.Create())
                 {
                     while (true)
                     {
                         ct.ThrowIfCancellationRequested();
-                        var ¶ÁÈë×Ö½ÚÊı = await ½âÑ¹Á÷.ReadAsync(»º³åÇø, 0, »º³åÇø.Length, ct);
-                        if (¶ÁÈë×Ö½ÚÊı == 0) break;
+                        var è¯»å…¥å­—èŠ‚æ•° = await è§£å‹æµ.ReadAsync(ç¼“å†²åŒº, 0, ç¼“å†²åŒº.Length, ct);
+                        if (è¯»å…¥å­—èŠ‚æ•° == 0) break;
 
-                        await Êä³öÁ÷.WriteAsync(»º³åÇø, 0, ¶ÁÈë×Ö½ÚÊı, ct);
-                        Ô­Ê¼Md5.TransformBlock(»º³åÇø, 0, ¶ÁÈë×Ö½ÚÊı, null, 0);
-                        md5.AppendData(»º³åÇø, 0, ¶ÁÈë×Ö½ÚÊı);
-                        pos += ¶ÁÈë×Ö½ÚÊı;
+                        await è¾“å‡ºæµ.WriteAsync(ç¼“å†²åŒº, 0, è¯»å…¥å­—èŠ‚æ•°, ct);
+                        åŸå§‹Md5.TransformBlock(ç¼“å†²åŒº, 0, è¯»å…¥å­—èŠ‚æ•°, null, 0);
+                        md5.AppendData(ç¼“å†²åŒº, 0, è¯»å…¥å­—èŠ‚æ•°);
+                        pos += è¯»å…¥å­—èŠ‚æ•°;
                     }
 
-                    Ô­Ê¼Md5.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
-                    var ¼ÆËãÔ­Ê¼Md5 = BitConverter.ToString(Ô­Ê¼Md5.Hash).Replace("-", "").ToLower();
+                    åŸå§‹Md5.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+                    var è®¡ç®—åŸå§‹Md5 = BitConverter.ToString(åŸå§‹Md5.Hash).Replace("-", "").ToLower();
 
                     if (pos != chunk.UncompressedSize)
                     {
-                        throw new Exception($"½âÑ¹Êı¾İ´óĞ¡²»Æ¥Åä: {chunk.Id}\nÆÚÍû´óĞ¡: {chunk.UncompressedSize}\nÊµ¼Ê´óĞ¡: {pos}");
+                        throw new Exception($"è§£å‹æ•°æ®å¤§å°ä¸åŒ¹é…: {chunk.Id}\næœŸæœ›å¤§å°: {chunk.UncompressedSize}\nå®é™…å¤§å°: {pos}");
                     }
 
-                    if (!¼ÆËãÔ­Ê¼Md5.Equals(chunk.UncompressedMd5, StringComparison.OrdinalIgnoreCase))
+                    if (!è®¡ç®—åŸå§‹Md5.Equals(chunk.UncompressedMd5, StringComparison.OrdinalIgnoreCase))
                     {
-                        throw new Exception($"½âÑ¹Êı¾İMD5Ğ£ÑéÊ§°Ü: {chunk.Id}\n¼ÆËãMD5: {¼ÆËãÔ­Ê¼Md5}\nÕıÈ·MD5: {chunk.UncompressedMd5}");
+                        throw new Exception($"è§£å‹æ•°æ®MD5æ ¡éªŒå¤±è´¥: {chunk.Id}\nè®¡ç®—MD5: {è®¡ç®—åŸå§‹Md5}\næ­£ç¡®MD5: {chunk.UncompressedMd5}");
                     }
                 }
             }
         }
 
-        private void ¼ÇÂ¼´íÎó(string error)
+        private void è®°å½•é”™è¯¯(string error)
         {
-            _ÈÕÖ¾¶ÓÁĞ.Add($"[{DateTime.Now}] {error}");
+            _æ—¥å¿—é˜Ÿåˆ—.Add($"[{DateTime.Now}] {error}");
         }
 
-        private void Ğ´Èë´íÎó()
+        private void å†™å…¥é”™è¯¯()
         {
             try
             {
-                foreach (var message in _ÈÕÖ¾¶ÓÁĞ.GetConsumingEnumerable())
+                foreach (var message in _æ—¥å¿—é˜Ÿåˆ—.GetConsumingEnumerable())
                 {
-                    Console.WriteLine($"´íÎó: {message}");
-                    File.AppendAllText(_´íÎóÎÄ¼şÂ·¾¶, message + Environment.NewLine);
+                    Console.WriteLine($"é”™è¯¯: {message}");
+                    File.AppendAllText(_é”™è¯¯æ–‡ä»¶è·¯å¾„, message + Environment.NewLine);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ÈÕÖ¾Ğ´ÈëÆ÷´íÎó: {ex.Message}");
+                Console.WriteLine($"æ—¥å¿—å†™å…¥å™¨é”™è¯¯: {ex.Message}");
             }
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            _cts?.Cancel();
+            _cts?.Dispose();
+            _æš‚åœäº‹ä»¶?.Dispose();
+            base.OnFormClosed(e);
         }
     }
 }
