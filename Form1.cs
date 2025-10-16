@@ -1,16 +1,18 @@
 ﻿using ProtoBuf;
 using System.Text.Json;
 using ZstdSharp;
+using NLog;
 
 namespace SophonChunksDownloader
 {
     public partial class Form1 : Form
     {
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+        private static readonly HttpClient _hc = new HttpClient();
+
         private ManifestConfig? _当前配置;
         private string? _保存目录;
         private Downloader? _下载器;
-
-        private static readonly HttpClient _hc = new HttpClient();
 
         public Form1()
         {
@@ -31,7 +33,7 @@ namespace SophonChunksDownloader
 
             if (string.IsNullOrEmpty(输入路径))
             {
-                MessageBox.Show("输入不能为空", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("输入不能为空", "警告：", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -65,6 +67,7 @@ namespace SophonChunksDownloader
                 }
                 catch (Exception ex)
                 {
+                    logger.Error(ex, "配置获取失败");
                     MessageBox.Show($"配置获取失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
@@ -75,12 +78,14 @@ namespace SophonChunksDownloader
                 }
                 catch (Exception ex)
                 {
+                    logger.Error(ex, "配置解析失败");
                     MessageBox.Show($"配置解析失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
                 if (_当前配置.retcode != 0)
                 {
+                    logger.Warn($"配置返回错误: {_当前配置.message}");
                     MessageBox.Show($"配置返回错误: {_当前配置.message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
@@ -94,9 +99,11 @@ namespace SophonChunksDownloader
                 }
 
                 下载游戏.Enabled = true;
+                logger.Info($"成功下载配置，Tag: {_当前配置.data.tag}，共 {选择下载框.Items.Count} 个分类");
             }
             catch (Exception ex)
             {
+                logger.Fatal(ex, "获取清单过程中发生未预期异常");
                 MessageBox.Show($"获取清单失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
@@ -199,13 +206,11 @@ namespace SophonChunksDownloader
             _下载器.下载取消回调 = () =>
             {
                 if (InvokeRequired)
-                {
                     Invoke(new Action(() =>
                     {
                         MessageBox.Show("下载已取消", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         重置UI状态();
                     }));
-                }
                 else
                 {
                     MessageBox.Show("下载已取消", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -221,7 +226,7 @@ namespace SophonChunksDownloader
             label2.Text = "开始下载文件...";
             下载进度条.Value = 0;
 
-            // 清单解析逻辑保持在 UI（按要求）
+            // 清单解析逻辑保持在 UI
             var 所有文件列表 = new List<SophonChunkFile>();
             var 文件清单字典 = new Dictionary<string, string>();
 
@@ -245,7 +250,7 @@ namespace SophonChunksDownloader
                     }
                     catch (Exception ex)
                     {
-                        _下载器.记录错误($"清单下载失败: {清单地址前缀}{清单Id}\n{ex.Message}");
+                        logger.Error(ex, $"清单下载失败: {清单地址前缀}{清单Id}");
                         continue;
                     }
 
@@ -254,6 +259,7 @@ namespace SophonChunksDownloader
                     var 清单 = Serializer.Deserialize<SophonChunkManifest>(解压清单);
 
                     label2.Text = $"已下载 {文件信息.category_name} 清单，包含 {清单.Chuncks.Count} 个文件";
+                    logger.Info($"已下载清单 {文件信息.category_name}，共 {清单.Chuncks.Count} 个文件");
 
                     foreach (var 文件 in 清单.Chuncks)
                     {
@@ -262,12 +268,11 @@ namespace SophonChunksDownloader
                     }
                 }
 
-                // 启动下载
                 await _下载器.开始下载(所有文件列表, 文件清单字典, _保存目录);
             }
             catch (Exception ex)
             {
-                _下载器.记录错误($"下载启动失败: {ex.Message}");
+                logger.Fatal(ex, "启动下载失败");
                 MessageBox.Show($"下载失败: \n{ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 重置UI状态();
             }
@@ -294,6 +299,7 @@ namespace SophonChunksDownloader
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             _下载器?.Dispose();
+            LogManager.Flush();
             base.OnFormClosed(e);
         }
     }

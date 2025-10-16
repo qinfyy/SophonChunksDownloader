@@ -1,7 +1,8 @@
-﻿using System.Collections.Concurrent;
+﻿using ProtoBuf;
 using System.Security.Cryptography;
 using System.Text;
 using ZstdSharp;
+using NLog;
 
 namespace SophonChunksDownloader
 {
@@ -18,12 +19,11 @@ namespace SophonChunksDownloader
     public class Downloader
     {
         private static readonly HttpClient _hc = new HttpClient();
-        private static readonly string _错误文件路径 = "错误.txt";
         private const int 最大重试次数 = 3;
 
-        private readonly BlockingCollection<string> _日志队列 = new BlockingCollection<string>();
-        private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
+        private readonly CancellationTokenSource _cts = new CancellationTokenSource();
         private SemaphoreSlim? _并发信号量;
         private readonly ManualResetEventSlim _暂停事件 = new ManualResetEventSlim(true);
         private readonly object _暂停锁 = new object();
@@ -44,11 +44,6 @@ namespace SophonChunksDownloader
         private long _上次更新时间 = 0;
         private string _当前速度 = "0 KB/s";
 
-        public Downloader()
-        {
-            Task.Run(写入错误);
-        }
-
         public void 暂停或继续()
         {
             lock (_暂停锁)
@@ -57,11 +52,13 @@ namespace SophonChunksDownloader
                 {
                     _暂停 = true;
                     _暂停事件.Reset();
+                    logger.Info("下载已暂停");
                 }
                 else
                 {
                     _暂停 = false;
                     _暂停事件.Set();
+                    logger.Info("下载已继续");
                 }
             }
         }
@@ -79,7 +76,9 @@ namespace SophonChunksDownloader
             _总文件数 = 所有文件列表.Count;
             if (_总文件数 == 0)
             {
-                状态文本回调?.Invoke("没有找到任何需要下载的文件");
+                var msg = "没有找到任何需要下载的文件";
+                状态文本回调?.Invoke(msg);
+                logger.Warn(msg);
                 return;
             }
 
@@ -90,8 +89,10 @@ namespace SophonChunksDownloader
             _上次更新时间 = Environment.TickCount;
             _当前速度 = "0 KB/s";
 
-            状态文本回调?.Invoke($"文件总数：{_总文件数} ，共 {实用工具.格式化文件大小(_总字节数)}");
-
+            var infoStr = "文件总数：{0} ，共 {1}";
+            logger.Info(infoStr, _总文件数, _总字节数);
+            状态文本回调?.Invoke(string.Format(infoStr, _总文件数, 实用工具.格式化文件大小(_总字节数)));
+            
             _并发信号量 = new SemaphoreSlim(最大并发, 最大并发);
             var 下载任务 = new List<Task>();
 
@@ -110,11 +111,11 @@ namespace SophonChunksDownloader
                         }
                         catch (OperationCanceledException)
                         {
-                            // 取消，不记录错误
+                            logger.Debug($"文件 {文件.File} 下载被取消");
                         }
                         catch (Exception ex)
                         {
-                            记录错误($"文件 {文件.File} 下载失败: {ex.Message}");
+                            logger.Error(ex, $"文件 {文件.File} 下载失败: {ex.Message}");
                         }
                         finally
                         {
@@ -127,20 +128,23 @@ namespace SophonChunksDownloader
 
                 if (!_cts.IsCancellationRequested)
                 {
+                    logger.Info("所有文件下载完成");
                     下载完成回调?.Invoke();
                 }
                 else
                 {
+                    logger.Info("下载被用户取消");
                     下载取消Callback();
                 }
             }
             catch (OperationCanceledException)
             {
+                logger.Info("下载被取消（OperationCanceledException）");
                 下载取消Callback();
             }
             catch (Exception ex)
             {
-                记录错误($"下载失败: {ex.Message}");
+                logger.Fatal(ex, "下载过程中发生未预期异常");
                 throw;
             }
         }
@@ -152,6 +156,7 @@ namespace SophonChunksDownloader
 
         public void 取消下载()
         {
+            logger.Info("收到取消下载请求");
             _cts.Cancel();
         }
 
@@ -163,6 +168,7 @@ namespace SophonChunksDownloader
             _已下载字节数 = 0;
             _上次更新字节数 = 0;
             _当前速度 = "0 KB/s";
+            logger.Debug("下载状态已重置");
         }
 
         private async Task 下载文件_异步(SophonChunkFile file, string 分块路径前缀, string 保存路径, CancellationToken ct)
@@ -172,11 +178,21 @@ namespace SophonChunksDownloader
 
             var filePath = Path.Combine(保存路径, file.File);
             var tmpPath = filePath + ".tmp";
+
             if (File.Exists(tmpPath))
+            {
+                logger.Debug($"删除残留临时文件: {tmpPath}");
                 File.Delete(tmpPath);
+            }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            var dir = Path.GetDirectoryName(filePath)!;
+            if (!Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+                logger.Debug($"创建目录: {dir}");
+            }
 
+            // 检查是否已存在且 MD5 匹配
             if (File.Exists(filePath))
             {
                 using (var fs = File.OpenRead(filePath))
@@ -184,13 +200,20 @@ namespace SophonChunksDownloader
                     var 存在文件Md5 = await 实用工具.计算Md5_异步(fs);
                     if (存在文件Md5.Equals(file.Md5, StringComparison.OrdinalIgnoreCase))
                     {
+                        logger.Info($"文件已存在且校验通过，跳过: {filePath}");
                         Interlocked.Add(ref _已下载字节数, file.Size);
-                        var 新文件数 = Interlocked.Increment(ref _已完成文件数);
+                        Interlocked.Increment(ref _已完成文件数);
                         更新进度();
                         return;
                     }
+                    else
+                    {
+                        logger.Warn($"文件存在但 MD5 不匹配，将重新下载: {filePath}");
+                    }
                 }
             }
+
+            logger.Info($"开始下载文件: {filePath} (大小: {file.Size})");
 
             try
             {
@@ -200,7 +223,7 @@ namespace SophonChunksDownloader
                     foreach (var chunk in file.Chunks)
                     {
                         ct.ThrowIfCancellationRequested();
-                        _暂停事件.Wait(ct); // 暂停
+                        _暂停事件.Wait(ct);
                         await 处理分块_异步(chunk, 分块路径前缀, fs, md5, ct);
                     }
 
@@ -208,21 +231,29 @@ namespace SophonChunksDownloader
 
                     if (!计算Md5.Equals(file.Md5, StringComparison.OrdinalIgnoreCase))
                     {
-                        throw new Exception($"文件MD5校验失败: {filePath}\n计算Md5: {计算Md5}\n正确MD5: {file.Md5}");
+                        var errMsg = $"文件MD5校验失败: {filePath}\n计算Md5: {计算Md5}\n正确MD5: {file.Md5}";
+                        logger.Error(errMsg);
+                        throw new Exception(errMsg);
                     }
+
+                    logger.Debug($"文件 MD5 校验通过: {filePath}");
                 }
 
                 File.Move(tmpPath, filePath, true);
+                logger.Info($"下载完成: {filePath}");
             }
             catch
             {
                 if (File.Exists(tmpPath))
+                {
+                    logger.Debug($"清理失败的临时文件: {tmpPath}");
                     File.Delete(tmpPath);
+                }
                 throw;
             }
             finally
             {
-                var 新文件数 = Interlocked.Increment(ref _已完成文件数);
+                Interlocked.Increment(ref _已完成文件数);
                 更新进度();
             }
         }
@@ -235,7 +266,7 @@ namespace SophonChunksDownloader
             if (时间差 > 100)
             {
                 long 字节增量 = _已下载字节数 - _上次更新字节数;
-                double 速度 = (字节增量 * 1000.0) / 时间差; // 字节/秒
+                double 速度 = (字节增量 * 1000.0) / 时间差;
                 _当前速度 = 实用工具.格式化速度(速度);
 
                 _上次更新字节数 = _已下载字节数;
@@ -265,7 +296,9 @@ namespace SophonChunksDownloader
             CancellationToken ct)
         {
             var url = 分块路径前缀 + chunk.Id;
-            Exception 异常 = null;
+            logger.Debug($"开始下载分块: {chunk.Id} (URL: {url})");
+
+            Exception? 最后异常 = null;
 
             using (var 压缩数据 = new MemoryStream())
             {
@@ -278,46 +311,52 @@ namespace SophonChunksDownloader
                         {
                             response.EnsureSuccessStatusCode();
                             await response.Content.CopyToAsync(压缩数据, ct);
+                            logger.Debug($"分块 {chunk.Id} 下载完成，大小: {压缩数据.Length}");
                             break;
                         }
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
-                        异常 = ex;
+                        最后异常 = ex;
+                        logger.Warn(ex, $"分块 {chunk.Id} 下载失败（第 {i + 1} 次重试）: {ex.Message}");
                         if (i < 最大重试次数 - 1)
                         {
-                            await Task.Delay((int)Math.Pow(2, i) * 1000, ct);
+                            var delayMs = (int)Math.Pow(2, i) * 1000;
+                            logger.Debug($"等待 {delayMs}ms 后重试分块 {chunk.Id}");
+                            await Task.Delay(delayMs, ct);
                         }
                     }
                 }
 
                 if (压缩数据.Length == 0)
                 {
-                    throw new Exception($"下载失败(重试{最大重试次数}次): {url}\n原因: {异常?.Message}");
+                    var errStr = $"分块 {chunk.Id} 下载失败（重试{最大重试次数}次）: {url}\n原因: {最后异常?.Message}";
+                    logger.Error(errStr);
+                    throw new Exception(errStr);
                 }
 
                 if (压缩数据.Length != chunk.CompressedSize)
                 {
-                    throw new Exception($"压缩数据大小不匹配: {chunk.Id}\n期望大小: {chunk.CompressedSize}\n实际大小: {压缩数据.Length}");
+                    var errStr = $"分块 {chunk.Id} 压缩数据大小不匹配: 期望 {chunk.CompressedSize}, 实际 {压缩数据.Length}";
+                    logger.Error(errStr);
+                    throw new Exception(errStr);
                 }
 
                 压缩数据.Seek(0, SeekOrigin.Begin);
                 var 压缩数据Md5 = await 实用工具.计算Md5_异步(压缩数据);
                 if (!压缩数据Md5.Equals(chunk.CompressedMd5, StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new Exception($"压缩数据MD5校验失败: {chunk.Id}\n计算MD5: {压缩数据Md5}\n正确MD5: {chunk.CompressedMd5}");
+                    var errStr = $"分块 {chunk.Id} 压缩数据 MD5 校验失败: 计算 {压缩数据Md5}, 期望 {chunk.CompressedMd5}";
+                    logger.Error(errStr);
+                    throw new Exception(errStr);
                 }
                 压缩数据.Seek(0, SeekOrigin.Begin);
 
+                logger.Debug($"分块 {chunk.Id} 压缩数据校验通过，开始解压");
+
                 using (var 解压数据 = new MemoryStream())
                 {
-                    await 解压分块_异步(
-                        chunk,
-                        压缩数据,
-                        解压数据,
-                        md5,
-                        ct
-                    );
+                    await 解压分块_异步(chunk, 压缩数据, 解压数据, md5, ct);
 
                     long 分块实际大小 = chunk.UncompressedSize;
                     Interlocked.Add(ref _已下载字节数, 分块实际大小);
@@ -326,6 +365,8 @@ namespace SophonChunksDownloader
                     解压数据.Seek(0, SeekOrigin.Begin);
                     await 解压数据.CopyToAsync(输出流, ct);
                 }
+
+                logger.Debug($"分块 {chunk.Id} 处理完成，解压后大小: {chunk.UncompressedSize}");
             }
         }
 
@@ -360,35 +401,14 @@ namespace SophonChunksDownloader
 
                     if (pos != chunk.UncompressedSize)
                     {
-                        throw new Exception($"解压数据大小不匹配: {chunk.Id}\n期望大小: {chunk.UncompressedSize}\n实际大小: {pos}");
+                        throw new Exception($"分块 {chunk.Id} 解压后大小不匹配: 期望 {chunk.UncompressedSize}, 实际 {pos}");
                     }
 
                     if (!计算原始Md5.Equals(chunk.UncompressedMd5, StringComparison.OrdinalIgnoreCase))
                     {
-                        throw new Exception($"解压数据MD5校验失败: {chunk.Id}\n计算MD5: {计算原始Md5}\n正确MD5: {chunk.UncompressedMd5}");
+                        throw new Exception($"分块 {chunk.Id} 解压后 MD5 校验失败: 计算 {计算原始Md5}, 期望 {chunk.UncompressedMd5}");
                     }
                 }
-            }
-        }
-
-        public void 记录错误(string error)
-        {
-            _日志队列.Add($"[{DateTime.Now}] {error}");
-        }
-
-        private void 写入错误()
-        {
-            try
-            {
-                foreach (var message in _日志队列.GetConsumingEnumerable())
-                {
-                    Console.WriteLine($"错误: {message}");
-                    File.AppendAllText(_错误文件路径, message + Environment.NewLine, Encoding.UTF8);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"日志写入器错误: {ex.Message}");
             }
         }
 
@@ -397,7 +417,7 @@ namespace SophonChunksDownloader
             _cts.Cancel();
             _cts.Dispose();
             _暂停事件.Dispose();
-            _日志队列.CompleteAdding();
+            LogManager.Flush();
         }
     }
 }
