@@ -1,7 +1,8 @@
-﻿using ProtoBuf;
+﻿using NLog;
+using ProtoBuf;
+using System;
 using System.Text.Json;
 using ZstdSharp;
-using NLog;
 
 namespace SophonChunksDownloader
 {
@@ -17,93 +18,106 @@ namespace SophonChunksDownloader
         public Form1()
         {
             InitializeComponent();
+            InitializeGameComboBox();
+        }
+
+        private void InitializeGameComboBox()
+        {
+            var games = GameUrlBuilder.获取支持的游戏列表();
+            游戏组合框.DataSource = games;
+            游戏组合框.DisplayMember = "DisplayName";
+            游戏组合框.ValueMember = "GameId";
         }
 
         private void 暂停按钮_Click(object sender, EventArgs e)
         {
             if (_下载器 == null) return;
-
             _下载器.暂停或继续();
             暂停按钮.Text = _下载器.是否暂停 ? "继续下载" : "暂停下载";
         }
 
         private async void 下载清单_Click(object sender, EventArgs e)
         {
-            var 输入路径 = textBox1.Text.Trim().Trim('"');
+            string? 输入路径 = null;
+
+            // 如果选择了游戏并填写了版本，则自动生成 getBuild URL
+            if (游戏组合框.SelectedItem is GameInfo selectedGame && !string.IsNullOrWhiteSpace(版本编辑框.Text))
+            {
+                try
+                {
+                    string 版本 = 版本编辑框.Text.Trim();
+                    // 自动补全版本号（如 6.0 → 6.0.0）
+                    if (版本.Count(c => c == '.') == 1)
+                        版本 += ".0";
+
+                    输入路径 = await GameUrlBuilder.构建GetBuild地址(selectedGame.GameId, selectedGame.Region, 版本);
+                    textBox1.Text = 输入路径; // 回显 URL
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "构建 getBuild URL 失败");
+                    MessageBox.Show($"构建 URL 失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+            }
+            else
+            {
+                // 使用用户手动输入的 URL
+                输入路径 = textBox1.Text.Trim().Trim('"');
+            }
 
             if (string.IsNullOrEmpty(输入路径))
             {
-                MessageBox.Show("输入不能为空", "警告：", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("请选择游戏并输入版本号，或直接输入 getBuild 清单 URL", "警告", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             下载清单.Enabled = false;
-            label2.Text = "正在获取配置...";
+            label2.Text = "正在获取清单...";
             label2.Visible = true;
 
             try
             {
                 string 配置Json;
-                try
+                if (输入路径.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (输入路径.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-                        || 输入路径.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    logger.Debug($"请求: {输入路径}");
+                    using (var rsp = await _hc.GetAsync(输入路径))
                     {
-                        using (var rsp = await _hc.GetAsync(输入路径))
-                        {
-                            rsp.EnsureSuccessStatusCode();
-                            配置Json = await rsp.Content.ReadAsStringAsync();
-                        }
-                    }
-                    else
-                    {
-                        var 文件路径 = Path.GetFullPath(输入路径);
-                        if (!File.Exists(文件路径))
-                        {
-                            throw new FileNotFoundException($"配置文件不存在: {文件路径}");
-                        }
-                        配置Json = await File.ReadAllTextAsync(文件路径);
+                        rsp.EnsureSuccessStatusCode();
+                        配置Json = await rsp.Content.ReadAsStringAsync();
                     }
                 }
-                catch (Exception ex)
+                else
                 {
-                    logger.Error(ex, "配置获取失败");
-                    MessageBox.Show($"配置获取失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    var 文件路径 = Path.GetFullPath(输入路径);
+                    if (!File.Exists(文件路径))
+                        throw new FileNotFoundException($"文件不存在: {文件路径}");
+                    配置Json = await File.ReadAllTextAsync(文件路径);
+                }
+
+                _当前配置 = JsonSerializer.Deserialize<ManifestConfig>(配置Json);
+
+                if (_当前配置?.retcode != 0)
+                {
+                    string msg = _当前配置?.message ?? "未知错误";
+                    logger.Warn($"清单返回错误: {msg}");
+                    MessageBox.Show($"清单错误: {msg}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
-                try
-                {
-                    _当前配置 = JsonSerializer.Deserialize<ManifestConfig>(配置Json);
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex, "配置解析失败");
-                    MessageBox.Show($"配置解析失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
-                if (_当前配置.retcode != 0)
-                {
-                    logger.Warn($"配置返回错误: {_当前配置.message}");
-                    MessageBox.Show($"配置返回错误: {_当前配置.message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
-                label2.Text = $"已获取配置，Tag: {_当前配置.data.tag}";
+                label2.Text = $"已获取清单，Tag: {_当前配置.data.tag}";
                 选择下载框.Items.Clear();
-
                 foreach (var manifest in _当前配置.data.manifests)
                 {
                     选择下载框.Items.Add(manifest.category_name, false);
                 }
-
                 下载游戏.Enabled = true;
-                logger.Info($"成功下载配置，Tag: {_当前配置.data.tag}，共 {选择下载框.Items.Count} 个分类");
+                logger.Info($"成功加载清单，Tag: {_当前配置.data.tag}，共 {选择下载框.Items.Count} 项");
             }
             catch (Exception ex)
             {
-                logger.Fatal(ex, "获取清单过程中发生未预期异常");
+                logger.Fatal(ex, "获取清单失败");
                 MessageBox.Show($"获取清单失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
@@ -143,43 +157,23 @@ namespace SophonChunksDownloader
 
             using (var folderDialog = new FolderBrowserDialog())
             {
-                if (folderDialog.ShowDialog() == DialogResult.OK)
-                {
-                    _保存目录 = folderDialog.SelectedPath;
-                }
-                else
-                {
-                    return;
-                }
+                if (folderDialog.ShowDialog() != DialogResult.OK) return;
+                _保存目录 = folderDialog.SelectedPath;
             }
 
-            // 释放旧下载器
             _下载器?.Dispose();
             _下载器 = new Downloader();
 
-            // 设置回调
             _下载器.进度更新回调 = (progress) =>
             {
-                if (InvokeRequired)
-                {
-                    Invoke(new Action(() => 更新进度UI(progress)));
-                }
-                else
-                {
-                    更新进度UI(progress);
-                }
+                if (InvokeRequired) Invoke(new Action(() => 更新进度UI(progress)));
+                else 更新进度UI(progress);
             };
 
             _下载器.状态文本回调 = (text) =>
             {
-                if (InvokeRequired)
-                {
-                    Invoke(new Action(() => label2.Text = text));
-                }
-                else
-                {
-                    label2.Text = text;
-                }
+                if (InvokeRequired) Invoke(new Action(() => label2.Text = text));
+                else label2.Text = text;
             };
 
             _下载器.下载完成回调 = () =>
@@ -218,7 +212,6 @@ namespace SophonChunksDownloader
                 }
             };
 
-            // UI 状态更新
             下载游戏.Text = "取消下载";
             下载清单.Enabled = false;
             选择下载框.Enabled = false;
@@ -226,7 +219,6 @@ namespace SophonChunksDownloader
             label2.Text = "开始下载文件...";
             下载进度条.Value = 0;
 
-            // 清单解析逻辑保持在 UI
             var 所有文件列表 = new List<SophonChunkFile>();
             var 文件清单字典 = new Dictionary<string, string>();
 
@@ -240,18 +232,10 @@ namespace SophonChunksDownloader
                     var 分块地址前缀 = 实用工具.确保斜杠结尾(文件信息.chunk_download.url_prefix);
 
                     byte[] 清单数据;
-                    try
+                    using (var rsp = await _hc.GetAsync(清单地址前缀 + 清单Id))
                     {
-                        using (var rsp = await _hc.GetAsync(清单地址前缀 + 清单Id))
-                        {
-                            rsp.EnsureSuccessStatusCode();
-                            清单数据 = await rsp.Content.ReadAsByteArrayAsync();
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, $"清单下载失败: {清单地址前缀}{清单Id}");
-                        continue;
+                        rsp.EnsureSuccessStatusCode();
+                        清单数据 = await rsp.Content.ReadAsByteArrayAsync();
                     }
 
                     using var decompressor = new Decompressor();

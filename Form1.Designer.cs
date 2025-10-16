@@ -36,6 +36,9 @@
             label2 = new Label();
             下载清单 = new Button();
             暂停按钮 = new Button();
+            游戏组合框 = new ComboBox();
+            label3 = new Label();
+            版本编辑框 = new TextBox();
             SuspendLayout();
             // 
             // 下载进度条
@@ -111,11 +114,38 @@
             暂停按钮.UseVisualStyleBackColor = true;
             暂停按钮.Click += 暂停按钮_Click;
             // 
+            // 游戏组合框
+            // 
+            游戏组合框.FormattingEnabled = true;
+            游戏组合框.Location = new Point(179, 59);
+            游戏组合框.Name = "游戏组合框";
+            游戏组合框.Size = new Size(157, 25);
+            游戏组合框.TabIndex = 10;
+            // 
+            // label3
+            // 
+            label3.AutoSize = true;
+            label3.Location = new Point(179, 98);
+            label3.Name = "label3";
+            label3.Size = new Size(44, 17);
+            label3.TabIndex = 11;
+            label3.Text = "版本：";
+            // 
+            // 版本编辑框
+            // 
+            版本编辑框.Location = new Point(220, 95);
+            版本编辑框.Name = "版本编辑框";
+            版本编辑框.Size = new Size(65, 23);
+            版本编辑框.TabIndex = 12;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 17F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(676, 251);
+            Controls.Add(版本编辑框);
+            Controls.Add(label3);
+            Controls.Add(游戏组合框);
             Controls.Add(暂停按钮);
             Controls.Add(下载清单);
             Controls.Add(label2);
@@ -140,5 +170,8 @@
         private Label label2;
         private Button 下载清单;
         private Button 暂停按钮;
+        private ComboBox 游戏组合框;
+        private Label label3;
+        private TextBox 版本编辑框;
     }
 }
