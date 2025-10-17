@@ -55,6 +55,24 @@ namespace SophonChunksDownloader
                 "https://sg-public-api.hoyoverse.com/downloader/sophon_chunk/api/getBuild",
                 "VYTpXlbWo8",
                 "ddxf6vlr1reo"
+            ),
+            ["BILIBILIYS"] = (
+                "https://hyp-api.mihoyo.com/hyp/hyp-connect/api/getGameBranches",
+                "https://downloader-api.mihoyo.com/downloader/sophon_chunk/api/getBuild",
+                "umfgRO5gh5",
+                "ddxf5qt290cg"
+            ),
+            ["BILIBILISR"] = (
+                "https://hyp-api.mihoyo.com/hyp/hyp-connect/api/getGameBranches",
+                "https://downloader-api.mihoyo.com/downloader/sophon_chunk/api/getBuild",
+                "6P5gHMNyK3",
+                "ddxf5qt290cg"
+            ),
+            ["BILIBILIJQL"] = (
+                "https://hyp-api.mihoyo.com/hyp/hyp-connect/api/getGameBranches",
+                "https://downloader-api.mihoyo.com/downloader/sophon_chunk/api/getBuild",
+                "xV0f4r1GT0",
+                "ddxf5qt290cg"
             )
         };
 
@@ -73,6 +91,9 @@ namespace SophonChunksDownloader
             {("bh3", "KR"), "uxB4MC7nzC"},
             {("bh3", "TW"), "wkE5P5WsIf"},
             {("bh3", "SEA"), "bxPTXSET5t"},
+            {("nap", "BILIBILIJQL"), "HXAFlmYa17"},
+            {("hkrpg", "BILIBILISR"), "EdtUqXfCHh"},
+            {("hk4e", "BILIBILIYS"), "T2S0Gz4Dr2"},
         };
 
         public static List<GameInfo> 获取支持的游戏列表()
@@ -91,6 +112,9 @@ namespace SophonChunksDownloader
                 new GameInfo { DisplayName = "崩坏3 (韩服)", GameId = "bh3", Region = "KR" },
                 new GameInfo { DisplayName = "崩坏3 (繁中服)", GameId = "bh3", Region = "TW" },
                 new GameInfo { DisplayName = "崩坏3 (东南亚服)", GameId = "bh3", Region = "SEA" },
+                new GameInfo { DisplayName = "原神 (B服)", GameId = "hk4e", Region = "BILIBILIYS" },
+                new GameInfo { DisplayName = "崩坏：星穹铁道 (B服)", GameId = "hkrpg", Region = "BILIBILISR" },
+                new GameInfo { DisplayName = "绝区零 (B服)", GameId = "nap", Region = "BILIBILIJQL" },
             };
         }
 

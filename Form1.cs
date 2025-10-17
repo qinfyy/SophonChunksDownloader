@@ -1,8 +1,7 @@
-﻿using NLog;
-using ProtoBuf;
-using System;
+﻿using ProtoBuf;
 using System.Text.Json;
 using ZstdSharp;
+using NLog;
 
 namespace SophonChunksDownloader
 {
@@ -215,6 +214,9 @@ namespace SophonChunksDownloader
             下载游戏.Text = "取消下载";
             下载清单.Enabled = false;
             选择下载框.Enabled = false;
+            游戏组合框.Enabled = false;
+            版本编辑框.Enabled = false;
+            label3.Enabled = false;
             暂停按钮.Enabled = true;
             label2.Text = "开始下载文件...";
             下载进度条.Value = 0;
@@ -274,6 +276,9 @@ namespace SophonChunksDownloader
             下载游戏.Text = "下载游戏";
             下载清单.Enabled = true;
             选择下载框.Enabled = true;
+            游戏组合框.Enabled = true;
+            版本编辑框.Enabled = true;
+            label3.Enabled = true;
             暂停按钮.Enabled = false;
             暂停按钮.Text = "暂停下载";
             下载进度条.Value = 0;
