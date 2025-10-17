@@ -301,8 +301,7 @@ namespace SophonChunksDownloader
         {
             if (游戏组合框.SelectedItem is GameInfo 选中游戏)
             {
-                string 最新版本 = GameUrlBuilder.获取缓存的最新版本(选中游戏.GameId, 选中游戏.Region);
-                版本编辑框.Text = 最新版本 ?? ""; // 若未缓存，清空
+                版本编辑框.Text = GameUrlBuilder.获取缓存的最新版本(选中游戏.GameId, 选中游戏.Region);
             }
         }
     }
