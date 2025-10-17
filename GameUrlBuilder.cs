@@ -1,4 +1,5 @@
 ﻿using NLog;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Web;
 
@@ -17,6 +18,8 @@ namespace SophonChunksDownloader
     {
         private static readonly HttpClient _hc = new HttpClient();
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+
+        private static readonly ConcurrentDictionary<string, string> _最新版本缓存 = new();
 
         private static readonly Dictionary<string, (string ApiBase, string SophonBase, string LauncherId, string PlatApp)> _区域配置 = new()
         {
@@ -166,6 +169,42 @@ namespace SophonChunksDownloader
 
             uri.Query = query.ToString();
             return uri.ToString();
+        }
+
+        public static string? 获取缓存的最新版本(string 游戏ID, string 区域)
+        {
+            string 键 = $"{游戏ID}|{区域}";
+                return _最新版本缓存.TryGetValue(键, out var 版本) ? 版本 : null;
+        }
+
+        public static async Task 预加载最新版本()
+        {
+            var 所有游戏 = 获取支持的游戏列表();
+            var 任务列表 = new List<Task>();
+
+            foreach (var g in 所有游戏)
+            {
+                var 任务 = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var b = await 获取分支数据(g.GameId, g.Region);
+                        if (b.retcode != 0)
+                            throw new($"获取分支失败: {b.message}");
+
+                        var tag = b.data.game_branches[0].main?.tag ?? throw new("未找到 main 分支");
+                        _最新版本缓存[$"{g.GameId}|{g.Region}"] = tag;
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Warn(ex, $"获取 {g.DisplayName} 最新版本失败");
+                    }
+                });
+
+                任务列表.Add(任务);
+            }
+
+            await Task.WhenAll(任务列表);
         }
     }
 }

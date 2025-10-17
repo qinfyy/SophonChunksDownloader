@@ -121,6 +121,7 @@
             游戏组合框.Name = "游戏组合框";
             游戏组合框.Size = new Size(157, 25);
             游戏组合框.TabIndex = 10;
+            游戏组合框.SelectedIndexChanged += 游戏组合框_SelectedIndexChanged;
             // 
             // label3
             // 
@@ -156,6 +157,7 @@
             Controls.Add(下载进度条);
             Name = "Form1";
             Text = "下载器";
+            Load += Form1_Load;
             ResumeLayout(false);
             PerformLayout();
         }

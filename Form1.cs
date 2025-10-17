@@ -17,15 +17,20 @@ namespace SophonChunksDownloader
         public Form1()
         {
             InitializeComponent();
-            InitializeGameComboBox();
         }
 
-        private void InitializeGameComboBox()
+        private  void Form1_Load(object sender, EventArgs e)
         {
             var games = GameUrlBuilder.获取支持的游戏列表();
             游戏组合框.DataSource = games;
             游戏组合框.DisplayMember = "DisplayName";
             游戏组合框.ValueMember = "GameId";
+
+            _ = Task.Run(async () =>
+            {
+                await GameUrlBuilder.预加载最新版本();
+                Invoke(new Action(() => 游戏组合框_SelectedIndexChanged(游戏组合框, EventArgs.Empty)));
+            });
         }
 
         private void 暂停按钮_Click(object sender, EventArgs e)
@@ -290,6 +295,15 @@ namespace SophonChunksDownloader
             _下载器?.Dispose();
             LogManager.Flush();
             base.OnFormClosed(e);
+        }
+
+        private void 游戏组合框_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (游戏组合框.SelectedItem is GameInfo 选中游戏)
+            {
+                string 最新版本 = GameUrlBuilder.获取缓存的最新版本(选中游戏.GameId, 选中游戏.Region);
+                版本编辑框.Text = 最新版本 ?? ""; // 若未缓存，清空
+            }
         }
     }
 }
