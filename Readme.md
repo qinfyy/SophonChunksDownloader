@@ -14,4 +14,4 @@
    cd .\bin\Debug\net9.0-windows
    .\SophonChunksDownloader.exe
    ```
-2. 输入清单配置的URL
+2. 输入清单配置的URL或选择游戏下载
