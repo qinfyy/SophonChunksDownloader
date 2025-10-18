@@ -39,10 +39,15 @@
             游戏组合框 = new ComboBox();
             label3 = new Label();
             版本编辑框 = new TextBox();
+            tableLayoutPanel1 = new TableLayoutPanel();
+            panel1 = new Panel();
+            tableLayoutPanel1.SuspendLayout();
+            panel1.SuspendLayout();
             SuspendLayout();
             // 
             // 下载进度条
             // 
+            下载进度条.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             下载进度条.Location = new Point(22, 174);
             下载进度条.Name = "下载进度条";
             下载进度条.Size = new Size(631, 24);
@@ -50,10 +55,11 @@
             // 
             // 下载游戏
             // 
+            下载游戏.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             下载游戏.Enabled = false;
-            下载游戏.Location = new Point(549, 55);
+            下载游戏.Location = new Point(559, 88);
             下载游戏.Name = "下载游戏";
-            下载游戏.Size = new Size(104, 30);
+            下载游戏.Size = new Size(105, 28);
             下载游戏.TabIndex = 1;
             下载游戏.Text = "开始下载";
             下载游戏.UseVisualStyleBackColor = true;
@@ -61,6 +67,7 @@
             // 
             // textBox1
             // 
+            textBox1.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             textBox1.Location = new Point(87, 23);
             textBox1.Name = "textBox1";
             textBox1.Size = new Size(455, 23);
@@ -77,14 +84,16 @@
             // 
             // 选择下载框
             // 
+            选择下载框.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             选择下载框.FormattingEnabled = true;
-            选择下载框.Location = new Point(22, 55);
+            选择下载框.Location = new Point(3, 3);
             选择下载框.Name = "选择下载框";
-            选择下载框.Size = new Size(151, 112);
+            选择下载框.Size = new Size(133, 94);
             选择下载框.TabIndex = 6;
             // 
             // label2
             // 
+            label2.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             label2.AutoSize = true;
             label2.Location = new Point(22, 210);
             label2.Name = "label2";
@@ -95,9 +104,10 @@
             // 
             // 下载清单
             // 
-            下载清单.Location = new Point(549, 19);
+            下载清单.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            下载清单.Location = new Point(559, 18);
             下载清单.Name = "下载清单";
-            下载清单.Size = new Size(104, 30);
+            下载清单.Size = new Size(105, 28);
             下载清单.TabIndex = 8;
             下载清单.Text = "下载清单";
             下载清单.UseVisualStyleBackColor = true;
@@ -105,10 +115,11 @@
             // 
             // 暂停按钮
             // 
+            暂停按钮.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             暂停按钮.Enabled = false;
-            暂停按钮.Location = new Point(549, 91);
+            暂停按钮.Location = new Point(559, 52);
             暂停按钮.Name = "暂停按钮";
-            暂停按钮.Size = new Size(104, 30);
+            暂停按钮.Size = new Size(105, 30);
             暂停按钮.TabIndex = 9;
             暂停按钮.Text = "暂停下载";
             暂停按钮.UseVisualStyleBackColor = true;
@@ -117,16 +128,16 @@
             // 游戏组合框
             // 
             游戏组合框.FormattingEnabled = true;
-            游戏组合框.Location = new Point(179, 59);
+            游戏组合框.Location = new Point(0, 3);
             游戏组合框.Name = "游戏组合框";
-            游戏组合框.Size = new Size(157, 25);
+            游戏组合框.Size = new Size(180, 25);
             游戏组合框.TabIndex = 10;
             游戏组合框.SelectedIndexChanged += 游戏组合框_SelectedIndexChanged;
             // 
             // label3
             // 
             label3.AutoSize = true;
-            label3.Location = new Point(179, 98);
+            label3.Location = new Point(3, 37);
             label3.Name = "label3";
             label3.Size = new Size(44, 17);
             label3.TabIndex = 11;
@@ -134,30 +145,56 @@
             // 
             // 版本编辑框
             // 
-            版本编辑框.Location = new Point(220, 95);
+            版本编辑框.Location = new Point(53, 34);
             版本编辑框.Name = "版本编辑框";
             版本编辑框.Size = new Size(65, 23);
             版本编辑框.TabIndex = 12;
+            // 
+            // tableLayoutPanel1
+            // 
+            tableLayoutPanel1.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            tableLayoutPanel1.ColumnCount = 2;
+            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F));
+            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60F));
+            tableLayoutPanel1.Controls.Add(选择下载框, 0, 0);
+            tableLayoutPanel1.Controls.Add(panel1, 1, 0);
+            tableLayoutPanel1.Location = new Point(22, 52);
+            tableLayoutPanel1.Name = "tableLayoutPanel1";
+            tableLayoutPanel1.RowCount = 1;
+            tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            tableLayoutPanel1.Size = new Size(348, 116);
+            tableLayoutPanel1.TabIndex = 13;
+            // 
+            // panel1
+            // 
+            panel1.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            panel1.Controls.Add(游戏组合框);
+            panel1.Controls.Add(版本编辑框);
+            panel1.Controls.Add(label3);
+            panel1.Location = new Point(142, 3);
+            panel1.Name = "panel1";
+            panel1.Size = new Size(203, 110);
+            panel1.TabIndex = 7;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 17F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(676, 251);
-            Controls.Add(版本编辑框);
-            Controls.Add(label3);
-            Controls.Add(游戏组合框);
-            Controls.Add(暂停按钮);
             Controls.Add(下载清单);
+            Controls.Add(下载游戏);
+            Controls.Add(tableLayoutPanel1);
+            Controls.Add(暂停按钮);
             Controls.Add(label2);
-            Controls.Add(选择下载框);
             Controls.Add(label1);
             Controls.Add(textBox1);
-            Controls.Add(下载游戏);
             Controls.Add(下载进度条);
             Name = "Form1";
             Text = "下载器";
             Load += Form1_Load;
+            tableLayoutPanel1.ResumeLayout(false);
+            panel1.ResumeLayout(false);
+            panel1.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -175,5 +212,7 @@
         private ComboBox 游戏组合框;
         private Label label3;
         private TextBox 版本编辑框;
+        private TableLayoutPanel tableLayoutPanel1;
+        private Panel panel1;
     }
 }

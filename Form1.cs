@@ -19,7 +19,7 @@ namespace SophonChunksDownloader
             InitializeComponent();
         }
 
-        private  void Form1_Load(object sender, EventArgs e)
+        private void Form1_Load(object sender, EventArgs e)
         {
             var games = GameUrlBuilder.获取支持的游戏列表();
             游戏组合框.DataSource = games;
