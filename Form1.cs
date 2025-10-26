@@ -223,6 +223,7 @@ namespace SophonChunksDownloader
             版本编辑框.Enabled = false;
             label3.Enabled = false;
             暂停按钮.Enabled = true;
+            清理多余文件.Enabled = false;
             label2.Text = "开始下载文件...";
             下载进度条.Value = 0;
 
@@ -259,7 +260,7 @@ namespace SophonChunksDownloader
                     }
                 }
 
-                await _下载器.开始下载(所有文件列表, 文件清单字典, _保存目录);
+                await _下载器.开始下载(所有文件列表, 文件清单字典, _保存目录, 是否清理多余文件: 清理多余文件.Checked);
             }
             catch (Exception ex)
             {
@@ -285,6 +286,7 @@ namespace SophonChunksDownloader
             版本编辑框.Enabled = true;
             label3.Enabled = true;
             暂停按钮.Enabled = false;
+            清理多余文件.Enabled = true;
             暂停按钮.Text = "暂停下载";
             下载进度条.Value = 0;
             label2.Text = "";

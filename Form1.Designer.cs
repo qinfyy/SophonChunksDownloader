@@ -41,6 +41,7 @@
             版本编辑框 = new TextBox();
             tableLayoutPanel1 = new TableLayoutPanel();
             panel1 = new Panel();
+            清理多余文件 = new CheckBox();
             tableLayoutPanel1.SuspendLayout();
             panel1.SuspendLayout();
             SuspendLayout();
@@ -168,6 +169,7 @@
             // panel1
             // 
             panel1.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            panel1.Controls.Add(清理多余文件);
             panel1.Controls.Add(游戏组合框);
             panel1.Controls.Add(版本编辑框);
             panel1.Controls.Add(label3);
@@ -175,6 +177,16 @@
             panel1.Name = "panel1";
             panel1.Size = new Size(203, 110);
             panel1.TabIndex = 7;
+            // 
+            // 清理多余文件
+            // 
+            清理多余文件.AutoSize = true;
+            清理多余文件.Location = new Point(5, 66);
+            清理多余文件.Name = "清理多余文件";
+            清理多余文件.Size = new Size(135, 21);
+            清理多余文件.TabIndex = 13;
+            清理多余文件.Text = "清理文件夹多余文件";
+            清理多余文件.UseVisualStyleBackColor = true;
             // 
             // Form1
             // 
@@ -214,5 +226,6 @@
         private TextBox 版本编辑框;
         private TableLayoutPanel tableLayoutPanel1;
         private Panel panel1;
+        private CheckBox 清理多余文件;
     }
 }

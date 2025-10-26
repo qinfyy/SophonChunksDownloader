@@ -67,7 +67,8 @@ namespace SophonChunksDownloader
             List<SophonChunkFile> 所有文件列表,
             Dictionary<string, string> 文件清单字典,
             string 保存目录,
-            int 最大并发 = 16)
+            int 最大并发 = 16,
+            bool 是否清理多余文件 = false)
         {
             _cts.Token.ThrowIfCancellationRequested();
 
@@ -126,30 +127,30 @@ namespace SophonChunksDownloader
 
                 if (!_cts.IsCancellationRequested)
                 {
+                    if (是否清理多余文件)
+                    {
+                        await 清理多余文件(所有文件列表, 保存目录);
+                    }
+
                     logger.Info("所有文件下载完成");
                     下载完成回调?.Invoke();
                 }
                 else
                 {
                     logger.Info("下载被用户取消");
-                    下载取消Callback();
+                    下载取消回调?.Invoke();
                 }
             }
             catch (OperationCanceledException)
             {
                 logger.Info("下载被取消（OperationCanceledException）");
-                下载取消Callback();
+                下载取消回调?.Invoke();
             }
             catch (Exception ex)
             {
                 logger.Fatal(ex, "下载过程中发生未预期异常");
                 throw;
             }
-        }
-
-        private void 下载取消Callback()
-        {
-            下载取消回调?.Invoke();
         }
 
         public void 取消下载()
@@ -407,6 +408,68 @@ namespace SophonChunksDownloader
                         throw new Exception($"分块 {chunk.Id} 解压后 MD5 校验失败: 计算 {计算原始Md5}, 期望 {chunk.UncompressedMd5}");
                     }
                 }
+            }
+        }
+
+        private async Task 清理多余文件(List<SophonChunkFile> 所有文件列表, string 保存目录)
+        {
+            try
+            {
+                var 预期文件路径 = new HashSet<string>(
+                    所有文件列表.Select(f => Path.GetFullPath(Path.Combine(保存目录, f.File))),
+                    StringComparer.OrdinalIgnoreCase
+                );
+
+                var 实际文件路径 = Directory.GetFiles(保存目录, "*", SearchOption.AllDirectories)
+                                             .Select(Path.GetFullPath)
+                                             .ToList();
+
+                var 多余文件 = 实际文件路径.Where(f => !预期文件路径.Contains(f)).ToList();
+
+                if (多余文件.Count > 0)
+                {
+                    logger.Debug($"发现 {多余文件.Count} 个多余文件，正在清理...");
+
+                    foreach (var filePath in 多余文件)
+                    {
+                        try
+                        {
+                            File.Delete(filePath);
+                            logger.Debug($"已删除多余文件: {filePath}");
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.Warn(ex, $"无法删除文件: {filePath}，原因: {ex.Message}");
+                        }
+                    }
+                }
+
+                if (Directory.Exists(保存目录))
+                {
+                    var 所有目录 = Directory.GetDirectories(保存目录, "*", SearchOption.AllDirectories)
+                                            .OrderByDescending(d => d.Length)
+                                            .ToList();
+
+                    foreach (var dir in 所有目录)
+                    {
+                        if (Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
+                        {
+                            try
+                            {
+                                Directory.Delete(dir);
+                                logger.Debug($"已删除目录: {dir}");
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.Warn(ex, $"无法删除目录: {dir}: {ex.Message}");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"清理文件时发生错误: {ex.Message}");
             }
         }
 
