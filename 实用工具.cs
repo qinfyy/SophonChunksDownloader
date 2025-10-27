@@ -66,5 +66,17 @@ namespace SophonChunksDownloader
                 return $"{字节每秒 / (1024 * 1024):F1} MB/s";
             }
         }
+        public static string 格式化剩余时间(double 秒数)
+        {
+            if (double.IsNaN(秒数) || double.IsInfinity(秒数))
+                return "--:--:--";
+
+            TimeSpan 时间 = TimeSpan.FromSeconds(秒数);
+
+            if (时间.TotalHours >= 1)
+                return $"{时间:hh\\:mm\\:ss}";
+            else
+                return $"{时间:mm\\:ss}";
+        }
     }
 }
