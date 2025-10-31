@@ -159,12 +159,6 @@ namespace SophonChunksDownloader
                 return;
             }
 
-            using (var folderDialog = new FolderBrowserDialog())
-            {
-                if (folderDialog.ShowDialog() != DialogResult.OK) return;
-                _保存目录 = folderDialog.SelectedPath;
-            }
-
             _下载器?.Dispose();
             _下载器 = new Downloader();
 
@@ -260,6 +254,29 @@ namespace SophonChunksDownloader
                     }
                 }
 
+                var 选中项名称列表 = 选中的文件.Select(f => f.category_name).ToList();
+                var 选中项显示文本 = string.Join("\n", 选中项名称列表);
+
+                var 确认结果 = MessageBox.Show(
+                     $"即将下载以下内容：\n\n{选中项显示文本}\n\n共 {所有文件列表.Count} 个文件，总大小：{实用工具.格式化文件大小(所有文件列表.Sum(a => a.Size))}\n\n确定开始下载吗？",
+                    "确认下载", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+                if (确认结果 == DialogResult.No)
+                {
+                    重置UI状态();
+                    return;
+                }
+
+                using (var folderDialog = new FolderBrowserDialog())
+                {
+                    if (folderDialog.ShowDialog() != DialogResult.OK)
+                    {
+                        重置UI状态();
+                        return;
+                    }
+                    _保存目录 = folderDialog.SelectedPath;
+                }
+
                 await _下载器.开始下载(所有文件列表, 文件清单字典, _保存目录, 是否清理多余文件: 清理多余文件.Checked);
             }
             catch (Exception ex)
@@ -292,11 +309,10 @@ namespace SophonChunksDownloader
             label2.Text = "";
         }
 
-        protected override void OnFormClosed(FormClosedEventArgs e)
+        private void Form1_FormClosed(object sender, FormClosedEventArgs e)
         {
             _下载器?.Dispose();
             LogManager.Flush();
-            base.OnFormClosed(e);
         }
 
         private void 游戏组合框_SelectedIndexChanged(object sender, EventArgs e)

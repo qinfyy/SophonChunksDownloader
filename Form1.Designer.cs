@@ -203,6 +203,7 @@
             Controls.Add(下载进度条);
             Name = "Form1";
             Text = "下载器";
+            FormClosed += Form1_FormClosed;
             Load += Form1_Load;
             tableLayoutPanel1.ResumeLayout(false);
             panel1.ResumeLayout(false);
