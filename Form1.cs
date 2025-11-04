@@ -29,7 +29,14 @@ namespace SophonChunksDownloader
             _ = Task.Run(async () =>
             {
                 await GameUrlBuilder.预加载最新版本();
-                Invoke(new Action(() => 游戏组合框_SelectedIndexChanged(游戏组合框, EventArgs.Empty)));
+                if (InvokeRequired)
+                {
+                    Invoke(new Action(() => 游戏组合框_SelectedIndexChanged(游戏组合框, EventArgs.Empty)));
+                }
+                else
+                {
+                    游戏组合框_SelectedIndexChanged(游戏组合框, EventArgs.Empty);
+                }
             });
         }
 
@@ -54,8 +61,50 @@ namespace SophonChunksDownloader
                     if (版本.Count(c => c == '.') == 1)
                         版本 += ".0";
 
-                    输入路径 = await GameUrlBuilder.构建GetBuild地址(selectedGame.GameId, selectedGame.Region, 版本);
+                    var 分支信息 = await GameUrlBuilder.获取游戏分支(selectedGame.GameId, selectedGame.Region);
+
+                    // 获取当前选择的通道
+                    string branch = "main";
+                    bool isPreDownload = false;
+                    if (通道组合框.SelectedIndex > 0)
+                    {
+                        branch = "predownload";
+                        isPreDownload = true;
+                    }
+
+                    // 从分支信息中获取对应通道的数据
+                    BranchesMain? branchData = branch == "main"
+                        ? 分支信息.main
+                        : 分支信息.pre_download;
+
+                    if (branchData == null)
+                    {
+                        throw new InvalidOperationException($"通道 '{branch}' 不可用");
+                    }
+
+                    // mhy api特殊处理：预下载通道且请求的是最新版本
+                    bool requestLatestForPreDownload = false;
+                    if (isPreDownload && 分支信息.pre_download != null)
+                    {
+                        string? latestPreDownloadVersion = 分支信息.pre_download.tag;
+                        if (!string.IsNullOrEmpty(latestPreDownloadVersion) &&
+                            string.Equals(版本, latestPreDownloadVersion, StringComparison.OrdinalIgnoreCase))
+                        {
+                            requestLatestForPreDownload = true;
+                        }
+                    }
+
+                    // 构建URL
+                    输入路径 = GameUrlBuilder.构建GetBuild地址(
+                        selectedGame.GameId,
+                        selectedGame.Region,
+                        branchData.package_id,
+                        branchData.password,
+                        requestLatestForPreDownload ? null : 版本,
+                        branch
+                    );
                     textBox1.Text = 输入路径; // 回显 URL
+                    logger.Debug($"构建的URL: {输入路径}");
                 }
                 catch (Exception ex)
                 {
@@ -215,7 +264,10 @@ namespace SophonChunksDownloader
             选择下载框.Enabled = false;
             游戏组合框.Enabled = false;
             版本编辑框.Enabled = false;
+            通道组合框.Enabled = false;
             label3.Enabled = false;
+            游戏标签.Enabled = false;
+            label4.Enabled = false;
             暂停按钮.Enabled = true;
             清理多余文件.Enabled = false;
             label2.Text = "开始下载文件...";
@@ -301,7 +353,10 @@ namespace SophonChunksDownloader
             选择下载框.Enabled = true;
             游戏组合框.Enabled = true;
             版本编辑框.Enabled = true;
+            通道组合框.Enabled = true;
             label3.Enabled = true;
+            游戏标签.Enabled = true;
+            label4.Enabled = true;
             暂停按钮.Enabled = false;
             清理多余文件.Enabled = true;
             暂停按钮.Text = "暂停下载";
@@ -315,11 +370,77 @@ namespace SophonChunksDownloader
             LogManager.Flush();
         }
 
-        private void 游戏组合框_SelectedIndexChanged(object sender, EventArgs e)
+        private async void 游戏组合框_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (游戏组合框.SelectedItem is GameInfo 选中游戏)
+            if (游戏组合框.SelectedItem is not GameInfo 选中游戏) return;
+
+            try
             {
-                版本编辑框.Text = GameUrlBuilder.获取缓存的最新版本(选中游戏.GameId, 选中游戏.Region);
+                var 分支信息 = await GameUrlBuilder.获取游戏分支(选中游戏.GameId, 选中游戏.Region);
+
+                通道组合框.Items.Clear();
+                通道组合框.Items.Add("main");
+
+                if (分支信息.pre_download != null)
+                {
+                    通道组合框.Items.Add("predownload");
+                }
+                通道组合框.SelectedIndex = 0;
+
+                版本编辑框.Text = 分支信息.main?.tag ?? GameUrlBuilder.获取缓存的最新版本(选中游戏.GameId, 选中游戏.Region, "main");
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"获取 {选中游戏.DisplayName} 分支信息失败");
+                MessageBox.Show($"获取分支信息失败: {ex.Message}\n将使用默认通道", "警告", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                通道组合框.Items.Clear();
+                通道组合框.Items.Add("main");
+                通道组合框.SelectedIndex = 0;
+                版本编辑框.Text = GameUrlBuilder.获取缓存的最新版本(选中游戏.GameId, 选中游戏.Region, "main");
+            }
+        }
+
+        private void 通道组合框_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (游戏组合框.SelectedItem is not GameInfo 选中游戏) return;
+            if (通道组合框.SelectedIndex < 0) return;
+
+            try
+            {
+                var 分支信息 = GameUrlBuilder.获取缓存的游戏分支(选中游戏.GameId, 选中游戏.Region);
+                if (分支信息 == null) return;
+
+                string newVersion = "";
+
+                if (通道组合框.SelectedIndex == 0)
+                {
+                    newVersion = 分支信息.main?.tag ?? GameUrlBuilder.获取缓存的最新版本(选中游戏.GameId, 选中游戏.Region, "main");
+                }
+                else
+                {
+                    if (分支信息.pre_download != null)
+                    {
+                        newVersion = 分支信息.pre_download.tag ?? GameUrlBuilder.获取缓存的最新版本(选中游戏.GameId, 选中游戏.Region, "predownload");
+                    }
+                    else
+                    {
+                        通道组合框.SelectedIndex = 0;
+                        newVersion = 分支信息.main?.tag ?? GameUrlBuilder.获取缓存的最新版本(选中游戏.GameId, 选中游戏.Region, "main");
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(newVersion))
+                {
+                    版本编辑框.Text = newVersion;
+                }
+                else
+                {
+                    版本编辑框.Text = "";
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, $"切换通道时出错");
             }
         }
     }

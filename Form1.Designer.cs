@@ -41,6 +41,9 @@
             版本编辑框 = new TextBox();
             tableLayoutPanel1 = new TableLayoutPanel();
             panel1 = new Panel();
+            通道组合框 = new ComboBox();
+            label4 = new Label();
+            游戏标签 = new Label();
             清理多余文件 = new CheckBox();
             tableLayoutPanel1.SuspendLayout();
             panel1.SuspendLayout();
@@ -89,7 +92,7 @@
             选择下载框.FormattingEnabled = true;
             选择下载框.Location = new Point(3, 3);
             选择下载框.Name = "选择下载框";
-            选择下载框.Size = new Size(133, 94);
+            选择下载框.Size = new Size(150, 94);
             选择下载框.TabIndex = 6;
             // 
             // label2
@@ -129,16 +132,16 @@
             // 游戏组合框
             // 
             游戏组合框.FormattingEnabled = true;
-            游戏组合框.Location = new Point(0, 3);
+            游戏组合框.Location = new Point(53, 3);
             游戏组合框.Name = "游戏组合框";
-            游戏组合框.Size = new Size(180, 25);
+            游戏组合框.Size = new Size(160, 25);
             游戏组合框.TabIndex = 10;
             游戏组合框.SelectedIndexChanged += 游戏组合框_SelectedIndexChanged;
             // 
             // label3
             // 
             label3.AutoSize = true;
-            label3.Location = new Point(3, 37);
+            label3.Location = new Point(5, 77);
             label3.Name = "label3";
             label3.Size = new Size(44, 17);
             label3.TabIndex = 11;
@@ -146,7 +149,7 @@
             // 
             // 版本编辑框
             // 
-            版本编辑框.Location = new Point(53, 34);
+            版本编辑框.Location = new Point(53, 71);
             版本编辑框.Name = "版本编辑框";
             版本编辑框.Size = new Size(65, 23);
             版本编辑框.TabIndex = 12;
@@ -155,33 +158,63 @@
             // 
             tableLayoutPanel1.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             tableLayoutPanel1.ColumnCount = 2;
-            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F));
-            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60F));
+            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F));
+            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70F));
             tableLayoutPanel1.Controls.Add(选择下载框, 0, 0);
             tableLayoutPanel1.Controls.Add(panel1, 1, 0);
             tableLayoutPanel1.Location = new Point(22, 52);
             tableLayoutPanel1.Name = "tableLayoutPanel1";
             tableLayoutPanel1.RowCount = 1;
             tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            tableLayoutPanel1.Size = new Size(348, 116);
+            tableLayoutPanel1.Size = new Size(520, 116);
             tableLayoutPanel1.TabIndex = 13;
             // 
             // panel1
             // 
             panel1.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            panel1.Controls.Add(通道组合框);
+            panel1.Controls.Add(label4);
+            panel1.Controls.Add(游戏标签);
             panel1.Controls.Add(清理多余文件);
             panel1.Controls.Add(游戏组合框);
             panel1.Controls.Add(版本编辑框);
             panel1.Controls.Add(label3);
-            panel1.Location = new Point(142, 3);
+            panel1.Location = new Point(159, 3);
             panel1.Name = "panel1";
-            panel1.Size = new Size(203, 110);
+            panel1.Size = new Size(358, 110);
             panel1.TabIndex = 7;
+            // 
+            // 通道组合框
+            // 
+            通道组合框.FormattingEnabled = true;
+            通道组合框.Location = new Point(53, 36);
+            通道组合框.Name = "通道组合框";
+            通道组合框.Size = new Size(108, 25);
+            通道组合框.TabIndex = 16;
+            通道组合框.SelectedIndexChanged += 通道组合框_SelectedIndexChanged;
+            // 
+            // label4
+            // 
+            label4.AutoSize = true;
+            label4.Location = new Point(5, 41);
+            label4.Name = "label4";
+            label4.Size = new Size(44, 17);
+            label4.TabIndex = 15;
+            label4.Text = "通道：";
+            // 
+            // 游戏标签
+            // 
+            游戏标签.AutoSize = true;
+            游戏标签.Location = new Point(5, 6);
+            游戏标签.Name = "游戏标签";
+            游戏标签.Size = new Size(44, 17);
+            游戏标签.TabIndex = 14;
+            游戏标签.Text = "游戏：";
             // 
             // 清理多余文件
             // 
             清理多余文件.AutoSize = true;
-            清理多余文件.Location = new Point(5, 66);
+            清理多余文件.Location = new Point(219, 7);
             清理多余文件.Name = "清理多余文件";
             清理多余文件.Size = new Size(135, 21);
             清理多余文件.TabIndex = 13;
@@ -228,5 +261,8 @@
         private TableLayoutPanel tableLayoutPanel1;
         private Panel panel1;
         private CheckBox 清理多余文件;
+        private ComboBox 通道组合框;
+        private Label label4;
+        private Label 游戏标签;
     }
 }

@@ -20,7 +20,10 @@ namespace SophonChunksDownloader
         private static readonly HttpClient _hc = new HttpClient();
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        private static readonly ConcurrentDictionary<string, string> _最新版本缓存 = new();
+        // 缓存完整分支信息 (游戏ID, 区域) -> BranchesGameBranch
+        private static readonly ConcurrentDictionary<(string GameId, string Region), BranchesGameBranch> _分支缓存 = new();
+        // 分通道版本缓存 (游戏ID, 区域, 通道) -> 版本号
+        private static readonly ConcurrentDictionary<(string GameId, string Region, string Branch), string> _版本缓存 = new();
 
         private static readonly Dictionary<string, (string ApiBase, string SophonBase, string LauncherId, string PlatApp)> _区域配置 = new()
         {
@@ -108,10 +111,11 @@ namespace SophonChunksDownloader
                 throw new ArgumentException($"不支持的区域: {区域}");
 
             var (apiBase, _, launcherId, _) = 配置;
+            var relId = 获取REL游戏ID(游戏ID, 区域);
 
             var uri = new UriBuilder(apiBase);
             var query = HttpUtility.ParseQueryString(uri.Query);
-            query["game_ids[]"] = 获取REL游戏ID(游戏ID, 区域);
+            query["game_ids[]"] = relId;
             query["launcher_id"] = launcherId;
             uri.Query = query.ToString();
 
@@ -120,16 +124,41 @@ namespace SophonChunksDownloader
             return JsonSerializer.Deserialize<BranchesRoot>(json);
         }
 
-        public static async Task<string> 构建GetBuild地址(string 游戏ID, string 区域, string 版本号)
+        public static async Task<BranchesGameBranch> 获取游戏分支(string 游戏ID, string 区域)
         {
+            var 缓存键 = (游戏ID, 区域);
+            if (_分支缓存.TryGetValue(缓存键, out var 缓存数据))
+                return 缓存数据;
+
             var 分支数据 = await 获取分支数据(游戏ID, 区域);
             if (分支数据.retcode != 0)
                 throw new InvalidOperationException($"获取分支信息失败: {分支数据.message}");
 
-            var mainBranche = 分支数据.data.game_branches[0].main;
-            if (mainBranche == null)
-                throw new InvalidOperationException("未找到 main 分支信息");
+            var relId = 获取REL游戏ID(游戏ID, 区域);
+            var gameBranch = 分支数据.data.game_branches
+                .FirstOrDefault(b => b.game.id == relId);
 
+            if (gameBranch == null)
+                throw new InvalidOperationException($"未找到游戏 {游戏ID} 在区域 {区域} 的分支信息");
+
+            _分支缓存[缓存键] = gameBranch;
+            return gameBranch;
+        }
+
+        public static BranchesGameBranch? 获取缓存的游戏分支(string 游戏ID, string 区域)
+        {
+            var 缓存键 = (游戏ID, 区域);
+            return _分支缓存.TryGetValue(缓存键, out var 分支) ? 分支 : null;
+        }
+
+        public static string 构建GetBuild地址(
+            string 游戏ID,
+            string 区域,
+            string packageId,
+            string password,
+            string? 版本号,
+            string branch = "main")
+        {
             if (!_区域配置.TryGetValue(区域, out var 配置))
                 throw new ArgumentException($"不支持的区域: {区域}");
 
@@ -137,20 +166,25 @@ namespace SophonChunksDownloader
 
             var uri = new UriBuilder(sophonBase);
             var query = HttpUtility.ParseQueryString(uri.Query);
-            query["branch"] = "main";
-            query["package_id"] = mainBranche.package_id;
-            query["password"] = mainBranche.password;
+            query["branch"] = branch;
+            query["package_id"] = packageId;
+            query["password"] = password;
             query["plat_app"] = platApp;
-            query["tag"] = 版本号;
+
+            // mhy api特殊处理：predownload通道请求最新版本时，不传tag参数
+            if (branch != "predownload" || !string.IsNullOrEmpty(版本号))
+            {
+                query["tag"] = 版本号 ?? "";
+            }
 
             uri.Query = query.ToString();
             return uri.ToString();
         }
 
-        public static string 获取缓存的最新版本(string 游戏ID, string 区域)
+        public static string 获取缓存的最新版本(string 游戏ID, string 区域, string branch = "main")
         {
-            string 键 = $"{游戏ID}|{区域}";
-            return _最新版本缓存.TryGetValue(键, out var 版本) ? 版本 : "";
+            var key = (游戏ID, 区域, branch);
+            return _版本缓存.TryGetValue(key, out var 版本) ? 版本 : "";
         }
 
         public static async Task 预加载最新版本()
@@ -210,14 +244,32 @@ namespace SophonChunksDownloader
                         foreach (var 游戏 in 游戏列表)
                         {
                             string relId = 获取REL游戏ID(游戏.GameId, 区域);
-                            if (分支映射.TryGetValue(relId, out var 分支) && 分支.main?.tag != null)
+                            if (分支映射.TryGetValue(relId, out var 分支))
                             {
-                                _最新版本缓存[$"{游戏.GameId}|{区域}"] = 分支.main.tag;
-                                logger.Debug($"已获取 {游戏.DisplayName} 最新版本: {分支.main.tag}");
+                                // 缓存完整分支信息
+                                _分支缓存[(游戏.GameId, 游戏.Region)] = 分支;
+
+                                // 缓存主通道版本
+                                if (分支.main?.tag != null)
+                                {
+                                    _版本缓存[(游戏.GameId, 游戏.Region, "main")] = 分支.main.tag;
+                                    logger.Debug($"已获取 {游戏.DisplayName} (main) 最新版本: {分支.main.tag}");
+                                }
+                                else
+                                {
+                                    logger.Warn($"未找到 {游戏.DisplayName} 的 main 分支版本");
+                                }
+
+                                // 缓存预下载通道版本
+                                if (分支.pre_download?.tag != null)
+                                {
+                                    _版本缓存[(游戏.GameId, 游戏.Region, "predownload")] = 分支.pre_download.tag;
+                                    logger.Debug($"已获取 {游戏.DisplayName} (predownload) 最新版本: {分支.pre_download.tag}");
+                                }
                             }
                             else
                             {
-                                logger.Warn($"未找到 {游戏.DisplayName} 的 main 分支");
+                                logger.Warn($"未找到 {游戏.DisplayName} 的分支信息");
                             }
                         }
                     }
